@@ -20,6 +20,7 @@ const order = [
 	'On_Hold_Chats',
 	'Unread',
 	'Favorites',
+	'Custom',
 	'Teams',
 	'Discussions',
 	'Channels',
@@ -40,9 +41,14 @@ export const useRoomList = ({ collapsedGroups }: { collapsedGroups?: string[] })
 	const showOmnichannel = useOmnichannelEnabled();
 	const sidebarGroupByType = useUserPreference('sidebarGroupByType');
 	const favoritesEnabled = useUserPreference('sidebarShowFavorites');
-	const sidebarOrder = useUserPreference<typeof order>('sidebarSectionsOrder') ?? order;
+	//const sidebarOrder = useUserPreference<typeof order>('sidebarSectionsOrder') ?? order;
+	const sidebarOrder = order;
 	const isDiscussionEnabled = useSetting('Discussion_enabled');
 	const sidebarShowUnread = useUserPreference('sidebarShowUnread');
+
+	// Proper request is placed below. But for now I will hardcode only one option
+	// const customFolders = useUserPreference<CustomSidebarFolder[]>('customSidebarFolders') || [];
+	const customFolders = ['Custom'];
 
 	const options = useSortQueryOptions();
 
@@ -68,6 +74,7 @@ export const useRoomList = ({ collapsedGroups }: { collapsedGroups?: string[] })
 			const discussion = new Set();
 			const conversation = new Set();
 			const onHold = new Set();
+			const custom = new Set();
 
 			rooms.forEach((room) => {
 				if (room.archived) {
@@ -85,6 +92,9 @@ export const useRoomList = ({ collapsedGroups }: { collapsedGroups?: string[] })
 				if (favoritesEnabled && room.f) {
 					return favorite.add(room);
 				}
+
+				// Just add all rooms into Custom group
+				return custom.add(room);
 
 				if (sidebarGroupByType && room.teamMain) {
 					return team.add(room);
@@ -123,6 +133,8 @@ export const useRoomList = ({ collapsedGroups }: { collapsedGroups?: string[] })
 			sidebarShowUnread && unread.size && groups.set('Unread', unread);
 
 			favoritesEnabled && favorite.size && groups.set('Favorites', favorite);
+
+			custom.size && groups.set('Custom', custom);
 
 			sidebarGroupByType && team.size && groups.set('Teams', team);
 
