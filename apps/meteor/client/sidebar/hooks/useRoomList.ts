@@ -7,6 +7,7 @@ import { useVideoConfIncomingCalls } from '@rocket.chat/ui-video-conf';
 import { useMemo } from 'react';
 
 import { useSortQueryOptions } from '../../hooks/useSortQueryOptions';
+import { useUserRoomCategories } from '../../hooks/useUserRoomCategories';
 import { useOmnichannelEnabled } from '../../views/omnichannel/hooks/useOmnichannelEnabled';
 import { useQueuedInquiries } from '../../views/omnichannel/hooks/useQueuedInquiries';
 
@@ -46,6 +47,7 @@ export const useRoomList = ({ collapsedGroups }: { collapsedGroups?: string[] })
 	const sidebarOrder = useUserPreference<typeof order>('sidebarSectionsOrder') ?? order;
 	const isDiscussionEnabled = useSetting('Discussion_enabled');
 	const sidebarShowUnread = useUserPreference('sidebarShowUnread');
+	const { data: userRoomCategories = [] } = useUserRoomCategories();
 
 	const options = useSortQueryOptions();
 
@@ -72,9 +74,28 @@ export const useRoomList = ({ collapsedGroups }: { collapsedGroups?: string[] })
 			const discussion = new Set();
 			const conversation = new Set();
 			const onHold = new Set();
+			const customCategoryRooms = new Map<string, Set<SubscriptionWithRoom>>();
+			const customCategoryOrder = userRoomCategories.map((category) => category.name);
+			const roomIdToCategoryName = new Map<string, string>();
+
+			for (const category of userRoomCategories) {
+				customCategoryRooms.set(category.name, new Set());
+				for (const roomId of category.roomIds ?? []) {
+					// Deterministic mapping: first category in `userRoomCategories` wins.
+					if (!roomIdToCategoryName.has(roomId)) {
+						roomIdToCategoryName.set(roomId, category.name);
+					}
+				}
+			}
 
 			rooms.forEach((room) => {
 				if (room.archived) {
+					return;
+				}
+
+				const customCategoryName = roomIdToCategoryName.get(room.rid);
+				if (customCategoryName) {
+					customCategoryRooms.get(customCategoryName)?.add(room);
 					return;
 				}
 
@@ -133,6 +154,11 @@ export const useRoomList = ({ collapsedGroups }: { collapsedGroups?: string[] })
 			sidebarDrafts && drafts.size && groups.set('Drafts', drafts);
 
 			favoritesEnabled && favorite.size && groups.set('Favorites', favorite);
+			customCategoryRooms.forEach((rooms, categoryName) => {
+				if (rooms.size) {
+					groups.set(categoryName, rooms);
+				}
+			});
 
 			sidebarGroupByType && team.size && groups.set('Teams', team);
 
@@ -144,7 +170,8 @@ export const useRoomList = ({ collapsedGroups }: { collapsedGroups?: string[] })
 
 			!sidebarGroupByType && groups.set('Conversations', conversation);
 
-			const { groupsCount, groupsList, roomList, groupedUnreadInfo } = sidebarOrder.reduce(
+			const fullSidebarOrder = [...sidebarOrder, ...customCategoryOrder.filter((categoryName) => !sidebarOrder.includes(categoryName))];
+			const { groupsCount, groupsList, roomList, groupedUnreadInfo } = fullSidebarOrder.reduce(
 				(acc, key) => {
 					const value = groups.get(key);
 
@@ -212,6 +239,7 @@ export const useRoomList = ({ collapsedGroups }: { collapsedGroups?: string[] })
 			sidebarOrder,
 			collapsedGroups,
 			incomingCalls,
+			userRoomCategories,
 		]),
 		50,
 	);
