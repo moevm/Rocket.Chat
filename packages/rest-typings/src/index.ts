@@ -43,6 +43,7 @@ import type { SubscriptionsEndpoints } from './v1/subscriptionsEndpoints';
 import type { TeamsEndpoints } from './v1/teams';
 import type { TwoFactorChallengesEndpoints } from './v1/twoFactorChallenges';
 import type { UsersEndpoints } from './v1/users';
+import type { UserRoomCategoriesEndpoints } from './v1/userRoomCategories';
 import type { VideoConferenceEndpoints } from './v1/videoConference';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -68,6 +69,7 @@ export interface Endpoints
 		TeamsEndpoints,
 		SettingsEndpoints,
 		UsersEndpoints,
+		UserRoomCategoriesEndpoints,
 		AppsEndpoints,
 		OmnichannelEndpoints,
 		StatisticsEndpoints,
