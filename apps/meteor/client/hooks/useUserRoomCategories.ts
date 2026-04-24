@@ -1,6 +1,5 @@
 import { useEndpoint, useUserId } from '@rocket.chat/ui-contexts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
 
 export const useUserRoomCategories = () => {
 	const userId = useUserId();
@@ -10,6 +9,7 @@ export const useUserRoomCategories = () => {
 	const addRoomEndpoint = useEndpoint('POST', '/v1/user-room-categories/add-room');
 	const removeRoomEndpoint = useEndpoint('POST', '/v1/user-room-categories/remove-room');
 	const removeCategoryEndpoint = useEndpoint('POST', '/v1/user-room-categories/remove-category');
+	const renameCategoryEndpoint = useEndpoint('POST', '/v1/user-room-categories/rename-category');
 
 	const queryKey = ['userRoomCategories', userId];
 
@@ -61,25 +61,17 @@ export const useUserRoomCategories = () => {
 		onSuccess: invalidate,
 	});
 
-	const removeRoomFromCategory = async (categoryName: string, roomId: string) =>
-		removeRoomMutation.mutateAsync({ categoryName, roomId });
+	const renameCategoryMutation = useMutation({
+		mutationFn: async ({ oldName, newName }: { oldName: string; newName: string }) => {
+			await renameCategoryEndpoint({ oldName, newName });
+		},
+		onSuccess: invalidate,
+	});
+
+	const removeRoomFromCategory = async (categoryName: string, roomId: string) => removeRoomMutation.mutateAsync({ categoryName, roomId });
 
 	const removeCategory = async (name: string) => removeCategoryMutation.mutateAsync(name);
-
-	useEffect(() => {
-		(globalThis as Record<string, unknown>).__sidebarCustomCategories = {
-			addCategory,
-			addRoomToCategory,
-			removeRoomFromCategory,
-			removeCategory,
-			refresh: query.refetch,
-			getCategories: () => query.data ?? [],
-		};
-
-		return () => {
-			delete (globalThis as Record<string, unknown>).__sidebarCustomCategories;
-		};
-	}, [addCategory, addRoomToCategory, removeRoomFromCategory, removeCategory, query.refetch, query.data]);
+	const renameCategory = async (oldName: string, newName: string) => renameCategoryMutation.mutateAsync({ oldName, newName });
 
 	return {
 		...query,
@@ -87,5 +79,6 @@ export const useUserRoomCategories = () => {
 		addRoomToCategory,
 		removeRoomFromCategory,
 		removeCategory,
+		renameCategory,
 	};
 };

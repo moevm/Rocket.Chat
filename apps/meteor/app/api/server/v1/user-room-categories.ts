@@ -24,6 +24,16 @@ const addRoomToCategoryBodySchema = ajv.compile<{ categoryName: string; roomId: 
 	additionalProperties: false,
 });
 
+const renameCategoryBodySchema = ajv.compile<{ oldName: string; newName: string }>({
+	type: 'object',
+	properties: {
+		oldName: { type: 'string' },
+		newName: { type: 'string' },
+	},
+	required: ['oldName', 'newName'],
+	additionalProperties: false,
+});
+
 const categoriesResponseSchema = ajv.compile<{ categories: IUserRoomCategory[] }>({
 	type: 'object',
 	properties: {
@@ -150,6 +160,32 @@ API.v1.post(
 		}
 
 		await UserRoomCategories.removeCategory(this.userId, trimmedName);
+
+		return API.v1.success({});
+	},
+);
+
+API.v1.post(
+	'user-room-categories/rename-category',
+	{
+		authRequired: true,
+		body: renameCategoryBodySchema,
+		response: { 200: emptyResponseSchema, 400: emptyResponseSchema },
+	},
+	async function action() {
+		const { oldName, newName } = this.bodyParams;
+
+		check(oldName, String);
+		check(newName, String);
+
+		const trimmedOldName = oldName.trim();
+		const trimmedNewName = newName.trim();
+
+		if (!trimmedOldName || !trimmedNewName) {
+			return API.v1.failure('oldName and newName are required');
+		}
+
+		await UserRoomCategories.renameCategory(this.userId, trimmedOldName, trimmedNewName);
 
 		return API.v1.success({});
 	},
