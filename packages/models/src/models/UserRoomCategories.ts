@@ -107,4 +107,31 @@ export class UserRoomCategoriesRaw extends BaseRaw<IUserRoomCategories> implemen
 
 		return this.updateOne({ userId }, { $set: { categories } });
 	}
+
+	async renameCategory(userId: string, oldName: string, newName: string): Promise<UpdateResult> {
+		const doc = await this.findByUserId(userId);
+		if (!doc) {
+			throw new Error('User categories document not found');
+		}
+
+		const trimmedOldName = oldName.trim();
+		const trimmedNewName = newName.trim();
+
+		if (!trimmedOldName || !trimmedNewName) {
+			throw new Error('oldName and newName are required');
+		}
+
+		const targetIndex = doc.categories.findIndex((c) => c.name === trimmedOldName);
+		if (targetIndex === -1) {
+			throw new Error('Category not found');
+		}
+
+		if (doc.categories.some((c) => c.name === trimmedNewName)) {
+			throw new Error('Category already exists');
+		}
+
+		const categories = doc.categories.map((c, index) => (index === targetIndex ? { ...c, name: trimmedNewName } : c));
+
+		return this.updateOne({ userId }, { $set: { categories } });
+	}
 }

@@ -18,4 +18,8 @@ export type UserRoomCategoriesEndpoints = {
 	'/v1/user-room-categories/remove-category': {
 		POST: (params: { name: string }) => void;
 	};
+
+	'/v1/user-room-categories/rename-category': {
+		POST: (params: { oldName: string; newName: string }) => void;
+	};
 };

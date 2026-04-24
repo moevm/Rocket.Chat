@@ -30,6 +30,9 @@ const order = [
 	'Conversations',
 ] as const;
 
+/** Known sidebar section keys (i18n); any other `groupTitle` is a user-defined room category name. */
+export const SIDEBAR_BUILTIN_GROUP_KEYS = new Set<string>(order);
+
 type useRoomListReturnType = {
 	roomList: Array<SubscriptionWithRoom>;
 	groupsCount: number[];
@@ -155,9 +158,8 @@ export const useRoomList = ({ collapsedGroups }: { collapsedGroups?: string[] })
 
 			favoritesEnabled && favorite.size && groups.set('Favorites', favorite);
 			customCategoryRooms.forEach((rooms, categoryName) => {
-				if (rooms.size) {
-					groups.set(categoryName, rooms);
-				}
+				// Show empty categories as groups, so they are visible/manageable right after creation.
+				groups.set(categoryName, rooms);
 			});
 
 			sidebarGroupByType && team.size && groups.set('Teams', team);
