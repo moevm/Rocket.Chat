@@ -1,4 +1,4 @@
-import type { IScheduledMessage, IUser, RoomID, ScheduledMessageStatus } from '@rocket.chat/core-typings';
+import type { IRoom, IScheduledMessage, IUser, ScheduledMessageStatus } from '@rocket.chat/core-typings';
 import type { FindCursor, FindOptions, UpdateResult, DeleteResult } from 'mongodb';
 
 import type { FindPaginated, IBaseModel } from './IBaseModel';
@@ -8,12 +8,14 @@ export interface IScheduledMessagesModel extends IBaseModel<IScheduledMessage> {
 
 	claimNextReadyToSend(now: Date): Promise<IScheduledMessage | null>;
 
-	findByRoomId(rid: RoomID, options?: FindOptions<IScheduledMessage>): FindPaginated<FindCursor<IScheduledMessage>>;
+	claimById(messageId: IScheduledMessage['_id'], now: Date): Promise<IScheduledMessage | null>;
+
+	findByRoomId(rid: IRoom['_id'], options?: FindOptions<IScheduledMessage>): FindPaginated<FindCursor<IScheduledMessage>>;
 
 	findByUserId(userId: IUser['_id'], options?: FindOptions<IScheduledMessage>): FindPaginated<FindCursor<IScheduledMessage>>;
 
 	findByRoomIdAndUserId(
-		rid: RoomID,
+		rid: IRoom['_id'],
 		userId: IUser['_id'],
 		options?: FindOptions<IScheduledMessage>,
 	): FindPaginated<FindCursor<IScheduledMessage>>;
@@ -35,5 +37,5 @@ export interface IScheduledMessagesModel extends IBaseModel<IScheduledMessage> {
 
 	countPendingByUserId(userId: IUser['_id']): Promise<number>;
 
-	countPendingByRoomId(rid: RoomID): Promise<number>;
+	countPendingByRoomId(rid: IRoom['_id']): Promise<number>;
 }

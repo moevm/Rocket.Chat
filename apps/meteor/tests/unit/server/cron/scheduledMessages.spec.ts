@@ -6,12 +6,15 @@ import sinon from 'sinon';
 const sandbox = sinon.createSandbox();
 
 const claimNextReadyToSend = sandbox.stub();
+const claimById = sandbox.stub();
 const updateStatus = sandbox.stub();
 const deleteOldMessages = sandbox.stub();
 const findOneByIdRoom = sandbox.stub();
 const findOneByIdUser = sandbox.stub();
 const executeSendMessage = sandbox.stub();
 const cronJobsAdd = sandbox.stub();
+const cronJobsRemove = sandbox.stub();
+const cronJobsAddAtTimestamp = sandbox.stub();
 
 const logger = {
 	debug: sandbox.stub(),
@@ -21,10 +24,17 @@ const logger = {
 };
 
 const { processScheduledMessages } = p.noCallThru().load('../../../../server/cron/scheduledMessages', {
-	'@rocket.chat/cron': { cronJobs: { add: cronJobsAdd } },
+	'@rocket.chat/cron': {
+		cronJobs: {
+			add: cronJobsAdd,
+			remove: cronJobsRemove,
+			addAtTimestamp: cronJobsAddAtTimestamp,
+		},
+	},
 	'@rocket.chat/models': {
 		ScheduledMessages: {
 			claimNextReadyToSend,
+			claimById,
 			updateStatus,
 			deleteOldMessages,
 		},
@@ -32,12 +42,14 @@ const { processScheduledMessages } = p.noCallThru().load('../../../../server/cro
 		Users: { findOneById: findOneByIdUser },
 	},
 	'../meteor-methods/messages/sendMessage': { executeSendMessage },
+	'../lib/logger/system': { SystemLogger: logger },
 });
 
 describe('processScheduledMessages', () => {
 	beforeEach(() => {
 		sandbox.reset();
 		deleteOldMessages.resolves({ deletedCount: 0 });
+		cronJobsRemove.resolves();
 	});
 
 	it('sends a claimed scheduled message and marks it as sent', async () => {
@@ -61,6 +73,7 @@ describe('processScheduledMessages', () => {
 		expect(executeSendMessage.firstCall.args[0]).to.equal('u1');
 		expect(executeSendMessage.firstCall.args[1]).to.deep.include({ rid: 'rid1', msg: 'hello later' });
 		expect(updateStatus.calledWith('sm1', 'sent')).to.be.true;
+		expect(cronJobsRemove.calledOnce).to.be.true;
 		expect(deleteOldMessages.calledOnce).to.be.true;
 	});
 
@@ -73,5 +86,6 @@ describe('processScheduledMessages', () => {
 
 		expect(executeSendMessage.called).to.be.false;
 		expect(updateStatus.calledWith('sm2', 'failed', undefined, 'Room not found')).to.be.true;
+		expect(cronJobsRemove.calledOnce).to.be.true;
 	});
 });

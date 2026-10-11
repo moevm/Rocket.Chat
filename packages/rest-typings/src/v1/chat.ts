@@ -3,7 +3,6 @@ import type {
 	IRoom,
 	MessageAttachment,
 	IReadReceiptWithUser,
-	OtrSystemMessages,
 	MessageUrl,
 	IThreadMainMessage,
 	IScheduledMessage,
@@ -963,24 +962,6 @@ const ChatGetURLPreviewSchema = {
 
 export const isChatGetURLPreviewProps = ajv.compile<ChatGetURLPreview>(ChatGetURLPreviewSchema);
 
-type ChatOTR = { roomId: string; type: OtrSystemMessages };
-const ChatOTRSchema = {
-	type: 'object',
-	properties: {
-		roomId: {
-			type: 'string',
-			minLength: 1,
-		},
-		type: {
-			type: 'string',
-			enum: ['user_joined_otr', 'user_requested_otr_key_refresh', 'user_key_refreshed_successfully'],
-		},
-	},
-	required: ['roomId', 'type'],
-	additionalProperties: false,
-};
-export const isChatOTRProps = ajv.compile<ChatOTR>(ChatOTRSchema);
-
 type ChatScheduleMessage = {
 	roomId: string;
 	message: string;
@@ -1245,9 +1226,6 @@ export type ChatEndpoints = {
 	'/v1/chat.getURLPreview': {
 		GET: (params: ChatGetURLPreview) => { urlPreview: MessageUrl };
 	};
-	'/v1/chat.otr': {
-		POST: (params: ChatOTR) => void;
-	};
 	'/v1/chat.scheduleMessage': {
 		POST: (params: ChatScheduleMessage) => {
 			scheduledMessage: IScheduledMessage;
@@ -1264,7 +1242,8 @@ export type ChatEndpoints = {
 		};
 	};
 	'/v1/chat.cancelScheduledMessage': {
-		DELETE: (params: ChatCancelScheduledMessage) => {
+		// POST: RestClient.delete ignores params; body-based cancel must use POST (same as chat.delete).
+		POST: (params: ChatCancelScheduledMessage) => {
 			success: boolean;
 		};
 	};

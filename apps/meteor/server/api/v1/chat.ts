@@ -37,12 +37,14 @@ import {
 import { escapeRegExp } from '@rocket.chat/tools';
 import { Meteor } from 'meteor/meteor';
 
+import { cancelScheduledMessageJob, scheduleScheduledMessageJob } from '../../cron/scheduledMessages';
 import { roomAccessAttributes } from '../../lib/authorization';
 import { canAccessRoomAsync, canAccessRoomIdAsync, canAccessRoomIdsAsync } from '../../lib/authorization/canAccessRoom';
 import { canSendMessageAsync } from '../../lib/authorization/canSendMessage';
 import { hasPermissionAsync } from '../../lib/authorization/hasPermission';
 import { callbacks } from '../../lib/callbacks';
 import { applyAirGappedRestrictionsValidation } from '../../lib/cloud/license/airGappedRestrictionsWrapper';
+import { SystemLogger } from '../../lib/logger/system';
 import { deleteMessageValidatingPermission } from '../../lib/messages/deleteMessage';
 import { processWebhookMessage } from '../../lib/messages/processWebhookMessage';
 import { pinMessage, unpinMessage } from '../../lib/messaging/pins/pinMessage';
@@ -1555,7 +1557,7 @@ const chatEndpoints = API.v1
 				throw new Meteor.Error('error-not-allowed', 'Not allowed');
 			}
 
-			await canSendMessageAsync(roomId, { uid: this.userId, username, type });
+			await canSendMessageAsync(roomId, { uid: this.userId, username, type: type ?? 'user' });
 
 			const scheduledDate = new Date(scheduledAt);
 			if (scheduledDate <= new Date()) {
@@ -1579,6 +1581,15 @@ const chatEndpoints = API.v1
 			const insertedMessage = await ScheduledMessages.findOneById(scheduledMessage.insertedId);
 			if (!insertedMessage) {
 				return API.v1.failure('Failed to schedule message');
+			}
+
+			try {
+				await scheduleScheduledMessageJob(insertedMessage._id, scheduledDate);
+			} catch (error) {
+				SystemLogger.error({
+					msg: `Failed to register Agenda job for scheduled message ${insertedMessage._id}`,
+					err: error,
+				});
 			}
 
 			return API.v1.success({
@@ -1716,18 +1727,30 @@ const chatEndpoints = API.v1
 				return API.v1.failure('Scheduled message not found');
 			}
 
+			if (update.scheduledAt instanceof Date) {
+				try {
+					await cancelScheduledMessageJob(messageId);
+					await scheduleScheduledMessageJob(messageId, update.scheduledAt);
+				} catch (error) {
+					SystemLogger.error({
+						msg: `Failed to reschedule Agenda job for scheduled message ${messageId}`,
+						err: error,
+					});
+				}
+			}
+
 			return API.v1.success({
 				scheduledMessage: updatedMessage,
 			});
 		},
 	)
-	.delete(
+	.post(
 		'chat.cancelScheduledMessage',
 		{
 			authRequired: true,
 			body: isChatCancelScheduledMessageProps,
 			response: {
-				200: ajv.compile<{ success: boolean }>({
+				200: ajv.compile<void>({
 					type: 'object',
 					properties: {
 						success: { type: 'boolean', enum: [true] },
@@ -1757,6 +1780,8 @@ const chatEndpoints = API.v1
 			if (result.modifiedCount === 0) {
 				throw new Meteor.Error('error-not-found', 'Scheduled message not found or already sent');
 			}
+
+			await cancelScheduledMessageJob(messageId);
 
 			return API.v1.success();
 		},

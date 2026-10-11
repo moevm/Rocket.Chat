@@ -1,4 +1,4 @@
-import type { IScheduledMessage } from '@rocket.chat/core-typings';
+import type { IScheduledMessage, Serialized } from '@rocket.chat/core-typings';
 import { Box, Button, Icon, Throbber } from '@rocket.chat/fuselage';
 import { GenericModal } from '@rocket.chat/ui-client';
 import { useEndpoint, useToastMessageDispatch, useTranslation } from '@rocket.chat/ui-contexts';
@@ -9,13 +9,15 @@ type ScheduledMessagesListModalProps = {
 	onClose: () => void;
 };
 
+const visibleStatuses = new Set(['pending', 'processing', 'failed']);
+
 const ScheduledMessagesListModal = ({ roomId, onClose }: ScheduledMessagesListModalProps) => {
 	const t = useTranslation();
 	const dispatchToastMessage = useToastMessageDispatch();
 	const getScheduledMessages = useEndpoint('GET', '/v1/chat.getScheduledMessages');
-	const cancelScheduledMessage = useEndpoint('DELETE', '/v1/chat.cancelScheduledMessage');
+	const cancelScheduledMessage = useEndpoint('POST', '/v1/chat.cancelScheduledMessage');
 
-	const [messages, setMessages] = useState<IScheduledMessage[]>([]);
+	const [messages, setMessages] = useState<Serialized<IScheduledMessage>[]>([]);
 	const [loading, setLoading] = useState(true);
 
 	const loadMessages = useCallback(async () => {
@@ -23,11 +25,10 @@ const ScheduledMessagesListModal = ({ roomId, onClose }: ScheduledMessagesListMo
 			setLoading(true);
 			const result = await getScheduledMessages({
 				roomId,
-				status: 'pending',
 				count: 50,
 				offset: 0,
 			});
-			setMessages(result.scheduledMessages);
+			setMessages(result.scheduledMessages.filter((message) => visibleStatuses.has(message.status)));
 		} catch (error) {
 			dispatchToastMessage({ type: 'error', message: error });
 		} finally {
@@ -52,11 +53,11 @@ const ScheduledMessagesListModal = ({ roomId, onClose }: ScheduledMessagesListMo
 	return (
 		<GenericModal title={t('Scheduled_Messages')} icon={null} onClose={onClose} onConfirm={onClose} confirmText={t('Close')}>
 			{loading ? (
-				<Box display='flex' justifyContent='center' p={24}>
+				<Box display='flex' justifyContent='center' padding={24}>
 					<Throbber />
 				</Box>
 			) : messages.length === 0 ? (
-				<Box textAlign='center' p={24} color='hint'>
+				<Box textAlign='center' padding={24} color='hint'>
 					{t('No_scheduled_messages')}
 				</Box>
 			) : (
@@ -64,10 +65,10 @@ const ScheduledMessagesListModal = ({ roomId, onClose }: ScheduledMessagesListMo
 					{messages.map((message) => (
 						<Box
 							key={message._id}
-							p={16}
-							borderWidth={1}
+							padding={16}
+							borderWidth='default'
 							borderColor='neutral-300'
-							borderRadius={4}
+							borderRadius='medium'
 							display='flex'
 							flexDirection='column'
 							gap={8}
@@ -76,14 +77,28 @@ const ScheduledMessagesListModal = ({ roomId, onClose }: ScheduledMessagesListMo
 								<Icon name='clock' size='x16' />
 								{new Date(message.scheduledAt).toLocaleString()}
 							</Box>
+							{message.status === 'failed' && (
+								<Box fontScale='c1' color='danger'>
+									{message.failureReason
+										? t('Scheduled_message_failed_with_reason', { reason: message.failureReason })
+										: t('Scheduled_message_failed')}
+								</Box>
+							)}
+							{message.status === 'processing' && (
+								<Box fontScale='c1' color='hint'>
+									{t('Scheduled_message_processing')}
+								</Box>
+							)}
 							<Box fontScale='p2' withTruncatedText>
 								{message.msg}
 							</Box>
-							<Box display='flex' justifyContent='flex-end'>
-								<Button small danger onClick={() => handleCancel(message._id)} title={t('Cancel')}>
-									<Icon name='trash' size='x16' />
-								</Button>
-							</Box>
+							{message.status === 'pending' && (
+								<Box display='flex' justifyContent='flex-end'>
+									<Button small danger onClick={() => handleCancel(message._id)} title={t('Cancel')}>
+										<Icon name='trash' size='x16' />
+									</Button>
+								</Box>
+							)}
 						</Box>
 					))}
 				</Box>

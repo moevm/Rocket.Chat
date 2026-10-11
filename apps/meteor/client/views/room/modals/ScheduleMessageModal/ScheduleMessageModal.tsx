@@ -41,17 +41,7 @@ const ScheduleMessageModal = ({ onClose, onSchedule, message }: ScheduleMessageM
 				<Field>
 					<FieldLabel>{t('Message')}</FieldLabel>
 					<FieldRow>
-						<Box
-							p={12}
-							bg='neutral'
-							borderRadius='x4'
-							color='default'
-							style={{
-								maxHeight: '100px',
-								overflow: 'auto',
-								wordBreak: 'break-word',
-							}}
-						>
+						<Box padding={12} borderRadius='medium' color='default' style={{ maxHeight: 100, overflow: 'auto', wordBreak: 'break-word' }}>
 							{message}
 						</Box>
 					</FieldRow>

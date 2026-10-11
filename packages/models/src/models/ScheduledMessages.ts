@@ -1,4 +1,4 @@
-import type { IScheduledMessage, IUser, RoomID, ScheduledMessageStatus, RocketChatRecordDeleted } from '@rocket.chat/core-typings';
+import type { IRoom, IScheduledMessage, IUser, ScheduledMessageStatus, RocketChatRecordDeleted } from '@rocket.chat/core-typings';
 import type { FindPaginated, IScheduledMessagesModel } from '@rocket.chat/model-typings';
 import type {
 	Collection,
@@ -18,7 +18,7 @@ export class ScheduledMessagesRaw extends BaseRaw<IScheduledMessage> implements 
 		super(db, 'scheduled_messages', trash);
 	}
 
-	protected modelIndexes(): IndexDescription[] {
+	protected override modelIndexes(): IndexDescription[] {
 		return [
 			{ key: { rid: 1, scheduledAt: 1 } },
 			{ key: { userId: 1, status: 1 } },
@@ -64,10 +64,37 @@ export class ScheduledMessagesRaw extends BaseRaw<IScheduledMessage> implements 
 				sort: { scheduledAt: 1 },
 				returnDocument: 'after',
 			},
-		);
+		) as Promise<IScheduledMessage | null>;
 	}
 
-	findByRoomId(rid: RoomID, options?: FindOptions<IScheduledMessage>): FindPaginated<FindCursor<IScheduledMessage>> {
+	async claimById(messageId: IScheduledMessage['_id'], now: Date): Promise<IScheduledMessage | null> {
+		const staleProcessingBefore = new Date(now.getTime() - 5 * 60 * 1000);
+
+		return this.findOneAndUpdate(
+			{
+				_id: messageId,
+				scheduledAt: { $lte: now },
+				$or: [
+					{ status: 'pending' },
+					{
+						status: 'processing',
+						updatedAt: { $lte: staleProcessingBefore },
+					},
+				],
+			},
+			{
+				$set: {
+					status: 'processing',
+					updatedAt: new Date(),
+				},
+			},
+			{
+				returnDocument: 'after',
+			},
+		) as Promise<IScheduledMessage | null>;
+	}
+
+	findByRoomId(rid: IRoom['_id'], options?: FindOptions<IScheduledMessage>): FindPaginated<FindCursor<IScheduledMessage>> {
 		const query: Filter<IScheduledMessage> = { rid };
 		return this.findPaginated(query, options);
 	}
@@ -78,7 +105,7 @@ export class ScheduledMessagesRaw extends BaseRaw<IScheduledMessage> implements 
 	}
 
 	findByRoomIdAndUserId(
-		rid: RoomID,
+		rid: IRoom['_id'],
 		userId: IUser['_id'],
 		options?: FindOptions<IScheduledMessage>,
 	): FindPaginated<FindCursor<IScheduledMessage>> {
@@ -155,7 +182,7 @@ export class ScheduledMessagesRaw extends BaseRaw<IScheduledMessage> implements 
 		return this.col.countDocuments({ userId, status: 'pending' });
 	}
 
-	async countPendingByRoomId(rid: RoomID): Promise<number> {
+	async countPendingByRoomId(rid: IRoom['_id']): Promise<number> {
 		return this.col.countDocuments({ rid, status: 'pending' });
 	}
 }

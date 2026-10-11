@@ -1,12 +1,12 @@
 import type { IRocketChatRecord } from './IRocketChatRecord';
 import type { IMessage } from './IMessage';
+import type { IRoom } from './IRoom';
 import type { IUser } from './IUser';
-import type { RoomID } from './IRoom';
 
 export type ScheduledMessageStatus = 'pending' | 'processing' | 'sent' | 'cancelled' | 'failed';
 
 export interface IScheduledMessage extends IRocketChatRecord {
-	rid: RoomID;
+	rid: IRoom['_id'];
 	tmid?: IMessage['_id'];
 	msg: string;
 	userId: IUser['_id'];

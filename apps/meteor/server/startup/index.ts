@@ -18,12 +18,6 @@ export const startup = async () => {
 
 	await generateFederationKeys();
 
-	setImmediate(() => {
-		startCronJobs().catch((error) => {
-			console.error('Failed to start cron jobs:', error);
-		});
-	});
-
 	// NOTE: cron jobs are started from main.ts after startRocketChat(), so jobs
 	// that contact Rocket.Chat Cloud on boot (e.g. the usage report) run only
 	// after the license — including the offline flag — has been applied.
