@@ -1,7 +1,7 @@
 import { Message } from '@rocket.chat/core-services';
-import type { IMessage, IThreadMainMessage } from '@rocket.chat/core-typings';
+import type { IMessage, IScheduledMessage, IThreadMainMessage } from '@rocket.chat/core-typings';
 import { MessageTypes } from '@rocket.chat/message-types';
-import { Messages, Users, Rooms, Subscriptions } from '@rocket.chat/models';
+import { Messages, Users, Rooms, Subscriptions, ScheduledMessages } from '@rocket.chat/models';
 import {
 	ajv,
 	isChatReportMessageProps,
@@ -25,6 +25,10 @@ import {
 	isChatSyncThreadMessagesProps,
 	isChatGetStarredMessagesProps,
 	isChatGetDiscussionsProps,
+	isChatScheduleMessageProps,
+	isChatGetScheduledMessagesProps,
+	isChatUpdateScheduledMessageProps,
+	isChatCancelScheduledMessageProps,
 	validateBadRequestErrorResponse,
 	validateNotFoundErrorResponse,
 	validateUnauthorizedErrorResponse,
@@ -33,11 +37,14 @@ import {
 import { escapeRegExp } from '@rocket.chat/tools';
 import { Meteor } from 'meteor/meteor';
 
+import { cancelScheduledMessageJob, scheduleScheduledMessageJob } from '../../cron/scheduledMessages';
 import { roomAccessAttributes } from '../../lib/authorization';
 import { canAccessRoomAsync, canAccessRoomIdAsync, canAccessRoomIdsAsync } from '../../lib/authorization/canAccessRoom';
+import { canSendMessageAsync } from '../../lib/authorization/canSendMessage';
 import { hasPermissionAsync } from '../../lib/authorization/hasPermission';
 import { callbacks } from '../../lib/callbacks';
 import { applyAirGappedRestrictionsValidation } from '../../lib/cloud/license/airGappedRestrictionsWrapper';
+import { SystemLogger } from '../../lib/logger/system';
 import { deleteMessageValidatingPermission } from '../../lib/messages/deleteMessage';
 import { processWebhookMessage } from '../../lib/messages/processWebhookMessage';
 import { pinMessage, unpinMessage } from '../../lib/messaging/pins/pinMessage';
@@ -1517,6 +1524,266 @@ const chatEndpoints = API.v1
 			}
 
 			return API.v1.success({ messages: await normalizeMessagesForUser(messages, this.userId) });
+		},
+	)
+	.post(
+		'chat.scheduleMessage',
+		{
+			authRequired: true,
+			body: isChatScheduleMessageProps,
+			response: {
+				200: ajv.compile<{ scheduledMessage: IScheduledMessage }>({
+					type: 'object',
+					properties: {
+						scheduledMessage: { type: 'object' },
+						success: { type: 'boolean', enum: [true] },
+					},
+					required: ['scheduledMessage', 'success'],
+					additionalProperties: false,
+				}),
+				400: validateBadRequestErrorResponse,
+				401: validateUnauthorizedErrorResponse,
+			},
+		},
+		async function action() {
+			const { roomId, message, scheduledAt, tmid, previewUrls, tshow } = this.bodyParams;
+			const { username, type } = this.user;
+
+			if (!username) {
+				throw new Meteor.Error('error-invalid-user', 'Invalid user');
+			}
+
+			if (!(await canAccessRoomIdAsync(roomId, this.userId))) {
+				throw new Meteor.Error('error-not-allowed', 'Not allowed');
+			}
+
+			await canSendMessageAsync(roomId, { uid: this.userId, username, type: type ?? 'user' });
+
+			const scheduledDate = new Date(scheduledAt);
+			if (scheduledDate <= new Date()) {
+				throw new Meteor.Error('error-invalid-date', 'Scheduled time must be in the future');
+			}
+
+			const scheduledMessage = await ScheduledMessages.insertOne({
+				rid: roomId,
+				tmid,
+				msg: message,
+				userId: this.userId,
+				scheduledBy: this.userId,
+				scheduledAt: scheduledDate,
+				status: 'pending',
+				previewUrls,
+				tshow,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+			});
+
+			const insertedMessage = await ScheduledMessages.findOneById(scheduledMessage.insertedId);
+			if (!insertedMessage) {
+				return API.v1.failure('Failed to schedule message');
+			}
+
+			try {
+				await scheduleScheduledMessageJob(insertedMessage._id, scheduledDate);
+			} catch (error) {
+				SystemLogger.error({
+					msg: `Failed to register Agenda job for scheduled message ${insertedMessage._id}`,
+					err: error,
+				});
+			}
+
+			return API.v1.success({
+				scheduledMessage: insertedMessage,
+			});
+		},
+	)
+	.get(
+		'chat.getScheduledMessages',
+		{
+			authRequired: true,
+			query: isChatGetScheduledMessagesProps,
+			response: {
+				200: ajv.compile<{
+					scheduledMessages: IScheduledMessage[];
+					count: number;
+					offset: number;
+					total: number;
+				}>({
+					type: 'object',
+					properties: {
+						scheduledMessages: { type: 'array', items: { type: 'object' } },
+						count: { type: 'number' },
+						offset: { type: 'number' },
+						total: { type: 'number' },
+						success: { type: 'boolean', enum: [true] },
+					},
+					required: ['scheduledMessages', 'count', 'offset', 'total', 'success'],
+					additionalProperties: false,
+				}),
+				400: validateBadRequestErrorResponse,
+				401: validateUnauthorizedErrorResponse,
+			},
+		},
+		async function action() {
+			const { roomId, userId: filterUserId, status } = this.queryParams;
+			const { offset, count } = await getPaginationItems(this.queryParams);
+
+			const query: Record<string, unknown> = {};
+
+			if (roomId) {
+				if (!(await canAccessRoomIdAsync(roomId, this.userId))) {
+					throw new Meteor.Error('error-not-allowed', 'Not allowed');
+				}
+				query.rid = roomId;
+			}
+
+			if (filterUserId) {
+				if (filterUserId !== this.userId && !(await hasPermissionAsync(this.userId, 'manage-scheduled-messages'))) {
+					throw new Meteor.Error('error-not-allowed', 'Not allowed');
+				}
+				query.userId = filterUserId;
+			} else {
+				query.userId = this.userId;
+			}
+
+			if (status) {
+				query.status = status;
+			}
+
+			const { cursor, totalCount } = ScheduledMessages.findPaginated(query, {
+				sort: { scheduledAt: 1 },
+				skip: offset,
+				limit: count,
+			});
+
+			const [scheduledMessages, total] = await Promise.all([cursor.toArray(), totalCount]);
+
+			return API.v1.success({
+				scheduledMessages,
+				count: scheduledMessages.length,
+				offset,
+				total,
+			});
+		},
+	)
+	.put(
+		'chat.updateScheduledMessage',
+		{
+			authRequired: true,
+			body: isChatUpdateScheduledMessageProps,
+			response: {
+				200: ajv.compile<{ scheduledMessage: IScheduledMessage }>({
+					type: 'object',
+					properties: {
+						scheduledMessage: { type: 'object' },
+						success: { type: 'boolean', enum: [true] },
+					},
+					required: ['scheduledMessage', 'success'],
+					additionalProperties: false,
+				}),
+				400: validateBadRequestErrorResponse,
+				401: validateUnauthorizedErrorResponse,
+			},
+		},
+		async function action() {
+			const { messageId, scheduledAt, message } = this.bodyParams;
+
+			const scheduledMessage = await ScheduledMessages.findOneById(messageId);
+			if (!scheduledMessage) {
+				return API.v1.failure('Scheduled message not found');
+			}
+
+			if (
+				scheduledMessage.userId !== this.userId &&
+				!(await hasPermissionAsync(this.userId, 'manage-scheduled-messages'))
+			) {
+				throw new Meteor.Error('error-not-allowed', 'Not allowed');
+			}
+
+			if (scheduledMessage.status !== 'pending') {
+				throw new Meteor.Error('error-invalid-status', 'Can only update pending messages');
+			}
+
+			const update: Record<string, unknown> = {
+				updatedAt: new Date(),
+			};
+
+			if (scheduledAt) {
+				const scheduledDate = new Date(scheduledAt);
+				if (scheduledDate <= new Date()) {
+					throw new Meteor.Error('error-invalid-date', 'Scheduled time must be in the future');
+				}
+				update.scheduledAt = scheduledDate;
+			}
+
+			if (message) {
+				update.msg = message;
+			}
+
+			await ScheduledMessages.updateOne({ _id: messageId }, { $set: update });
+
+			const updatedMessage = await ScheduledMessages.findOneById(messageId);
+			if (!updatedMessage) {
+				return API.v1.failure('Scheduled message not found');
+			}
+
+			if (update.scheduledAt instanceof Date) {
+				try {
+					await cancelScheduledMessageJob(messageId);
+					await scheduleScheduledMessageJob(messageId, update.scheduledAt);
+				} catch (error) {
+					SystemLogger.error({
+						msg: `Failed to reschedule Agenda job for scheduled message ${messageId}`,
+						err: error,
+					});
+				}
+			}
+
+			return API.v1.success({
+				scheduledMessage: updatedMessage,
+			});
+		},
+	)
+	.post(
+		'chat.cancelScheduledMessage',
+		{
+			authRequired: true,
+			body: isChatCancelScheduledMessageProps,
+			response: {
+				200: ajv.compile<void>({
+					type: 'object',
+					properties: {
+						success: { type: 'boolean', enum: [true] },
+					},
+					required: ['success'],
+					additionalProperties: false,
+				}),
+				400: validateBadRequestErrorResponse,
+				401: validateUnauthorizedErrorResponse,
+			},
+		},
+		async function action() {
+			const { messageId } = this.bodyParams;
+
+			const scheduledMessage = await ScheduledMessages.findOneById(messageId);
+			if (!scheduledMessage) {
+				throw new Meteor.Error('error-not-found', 'Scheduled message not found or already sent');
+			}
+
+			const canManage = await hasPermissionAsync(this.userId, 'manage-scheduled-messages');
+			if (scheduledMessage.userId !== this.userId && !canManage) {
+				throw new Meteor.Error('error-not-allowed', 'Not allowed');
+			}
+
+			const result = await ScheduledMessages.cancelMessage(messageId, canManage ? undefined : this.userId);
+
+			if (result.modifiedCount === 0) {
+				throw new Meteor.Error('error-not-found', 'Scheduled message not found or already sent');
+			}
+
+			await cancelScheduledMessageJob(messageId);
+
+			return API.v1.success();
 		},
 	);
 

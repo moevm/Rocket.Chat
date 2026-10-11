@@ -50,6 +50,7 @@ export const permissions = [
 	{ _id: 'manage-assets', roles: ['admin'] },
 	{ _id: 'manage-email-inbox', roles: ['admin'] },
 	{ _id: 'manage-emoji', roles: ['admin'] },
+	{ _id: 'manage-scheduled-messages', roles: ['admin'] },
 	{ _id: 'manage-user-status', roles: ['admin'] },
 	{ _id: 'manage-outgoing-integrations', roles: ['admin'] },
 	{ _id: 'manage-incoming-integrations', roles: ['admin'] },

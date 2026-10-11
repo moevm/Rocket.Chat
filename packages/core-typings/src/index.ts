@@ -39,6 +39,7 @@ export type * from './IUserStatus';
 export * from './IUser';
 export type * from './IMeApiUser';
 
+export type * from './IScheduledMessage';
 export type * from './ee/IAuditLog';
 export type * from './ee/IWorkspaceCredentials';
 

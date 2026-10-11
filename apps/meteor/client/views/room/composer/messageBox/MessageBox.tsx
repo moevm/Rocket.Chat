@@ -385,6 +385,8 @@ const MessageBox = ({
 		<MessageBoxBase
 			rid={room._id}
 			tmid={tmid}
+			tshow={tshow}
+			previewUrls={previewUrls}
 			composer={chat.composer}
 			messageComposerRef={messageComposerRef}
 			popup={popup}
