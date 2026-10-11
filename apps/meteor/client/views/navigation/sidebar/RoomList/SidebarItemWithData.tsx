@@ -117,6 +117,12 @@ export default memo(SidebarItemWithData, (prevProps, nextProps) => {
 	if (prevProps.room.alert !== nextProps.room.alert) {
 		return false;
 	}
+	if (prevProps.room.draft !== nextProps.room.draft) {
+		return false;
+	}
+	if (prevProps.room.threadDrafts !== nextProps.room.threadDrafts) {
+		return false;
+	}
 	if (isOmnichannelRoom(prevProps.room) && isOmnichannelRoom(nextProps.room) && prevProps.room?.v?.status !== nextProps.room?.v?.status) {
 		return false;
 	}
