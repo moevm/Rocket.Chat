@@ -1,0 +1,7 @@
+{
+	"tests": [
+		"yarn workspace @rocket.chat/meteor exec ./node_modules/.bin/mocha --config ./.mocharc.base.json tests/unit/lib/restrictedEmojis.spec.ts tests/unit/server/lib/messaging/validateRestrictedEmojis.spec.ts tests/unit/app/emoji/restrictedEmojiPicker.spec.ts tests/unit/app/read-counter/getAccessibleMessageForReadCounter.spec.ts tests/unit/app/read-counter/getMessageReadCount.spec.ts",
+		"yarn workspace @rocket.chat/message-parser exec jest tests/orderedList.test.ts tests/unorderedList.test.ts",
+		"yarn workspace @rocket.chat/gazzodown exec jest src/blocks/splitListItemRuns.spec.ts"
+	]
+}
