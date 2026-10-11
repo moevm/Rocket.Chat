@@ -1,5 +1,5 @@
 import { isOmnichannelRoom } from '@rocket.chat/core-typings';
-import { SidebarV2ItemIcon as SidebarItemIcon } from '@rocket.chat/fuselage';
+import { SidebarItemIcon } from '@rocket.chat/fuselage';
 import { RoomAvatar } from '@rocket.chat/ui-avatar';
 import { useUserId, type SubscriptionWithRoom } from '@rocket.chat/ui-contexts';
 import { memo } from 'react';
@@ -16,7 +16,7 @@ import { getMessagePreview } from '../../../../lib/utils/normalizeMessagePreview
 import { useOmnichannelPriorities } from '../../../omnichannel/hooks/useOmnichannelPriorities';
 import { useUnreadDisplay } from '../../sidebar/hooks/useUnreadDisplay';
 
-type RoomSidePanelItemProps = {
+export type RoomSidePanelItemProps = {
 	room: SubscriptionWithRoom;
 	openedRoom?: string;
 	isRoomFilter?: boolean;

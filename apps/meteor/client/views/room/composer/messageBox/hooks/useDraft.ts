@@ -1,0 +1,86 @@
+import { useEndpoint } from '@rocket.chat/ui-contexts';
+import { useCallback, useEffect, useRef } from 'react';
+
+import { getMessageBoxStorageKey } from '../../../../../lib/utils/getMessageBoxStorageKey';
+
+export const useDraft = (rid: string, serverDraft?: string, tmid?: string, threadExists = true) => {
+	const storageKey = getMessageBoxStorageKey(rid, tmid);
+	const saveDraft = useEndpoint('POST', '/v1/rooms.saveDraft');
+
+	const setLocalDraft = useCallback(
+		(value?: string) => {
+			if (value) {
+				localStorage.setItem(storageKey, value);
+			} else {
+				localStorage.removeItem(storageKey);
+			}
+			window.dispatchEvent(new CustomEvent('localStorageChange', { detail: { key: storageKey } }));
+		},
+		[storageKey],
+	);
+
+	const initialValueRef = useRef(serverDraft || localStorage.getItem(storageKey) || '');
+	const draftRef = useRef<string | null>(null);
+	const threadExistsRef = useRef(threadExists);
+	const serverValueRef = useRef(serverDraft ?? '');
+
+	useEffect(() => {
+		threadExistsRef.current = threadExists;
+	}, [threadExists]);
+
+	const persistLocal = useCallback(
+		(value: string) => {
+			draftRef.current = value;
+			setLocalDraft(value);
+		},
+		[setLocalDraft],
+	);
+
+	const flushDraft = useCallback(
+		(value?: string) => {
+			const draft = value ?? draftRef.current;
+
+			if (draft === null) {
+				return;
+			}
+
+			draftRef.current = null;
+
+			if (tmid && !threadExistsRef.current && draft) {
+				return;
+			}
+
+			if (draft === serverValueRef.current) {
+				setLocalDraft();
+				return;
+			}
+
+			const previousServerValue = serverValueRef.current;
+			serverValueRef.current = draft;
+
+			void saveDraft({ rid, draft, ...(tmid && { tmid }) })
+				.then(() => {
+					if (draftRef.current === null) {
+						setLocalDraft();
+					}
+				})
+				.catch((error) => {
+					if (serverValueRef.current === draft) {
+						serverValueRef.current = previousServerValue;
+					}
+
+					console.warn(error);
+				});
+		},
+		[saveDraft, rid, tmid, setLocalDraft],
+	);
+
+	const discardDraft = useCallback(() => flushDraft(''), [flushDraft]);
+
+	return {
+		initialValue: initialValueRef.current,
+		persistLocal,
+		flushDraft,
+		discardDraft,
+	};
+};

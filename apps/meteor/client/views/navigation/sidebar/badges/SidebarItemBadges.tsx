@@ -7,19 +7,19 @@ import InvitationBadge from '../../../../components/InvitationBadge';
 import { useUnreadDisplay } from '../hooks/useUnreadDisplay';
 import { useRoomDraft } from '../../../../sidebar/hooks/useRoomDraft';
 
-type SidebarItemBadgesProps = {
+export type SidebarItemBadgesProps = {
 	room: SubscriptionWithRoom;
 	roomTitle?: string;
 };
 
 const SidebarItemBadges = ({ room, roomTitle }: SidebarItemBadgesProps) => {
 	const { unreadCount, unreadTitle, unreadVariant, showUnread } = useUnreadDisplay(room);
-	const showDraft = useRoomDraft(room.rid);
+	const showDraft = useRoomDraft(room);
 
 	return (
 		<>
 			{showUnread && <UnreadBadge title={unreadTitle} roomTitle={roomTitle} variant={unreadVariant} total={unreadCount.total} />}
-			{isInviteSubscription(room) && <InvitationBadge mbs={2} invitationDate={room.ts} />}
+			{isInviteSubscription(room) && <InvitationBadge marginBlockStart={2} invitationDate={room.ts} />}
 			{showDraft && <DraftBadge roomTitle={roomTitle} />}
 		</>
 	);
