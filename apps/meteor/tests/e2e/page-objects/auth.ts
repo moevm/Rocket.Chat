@@ -3,7 +3,27 @@ import type { FrameLocator, Locator, Page } from '@playwright/test';
 import { expect } from '../utils/test';
 
 abstract class Main {
+	protected abstract readonly page: Page;
+
 	constructor(protected root: Locator) {}
+
+	/**
+	 * Navigates to `url` and waits for this screen to render.
+	 *
+	 * Auth screens are what an unauthenticated visitor is bounced to, so the url a test navigates to
+	 * is usually not the one it lands on — hence the parameter. Pass `until` when the route settles
+	 * on something else, e.g. a login iframe replacing the login form.
+	 */
+	async goto(url = '/home', until?: Locator): Promise<void> {
+		await this.page.goto(url);
+
+		if (until) {
+			await expect(until).toBeVisible();
+			return;
+		}
+
+		await this.waitForDisplay();
+	}
 
 	waitForDisplay() {
 		return expect(this.root).toBeVisible();
@@ -20,13 +40,64 @@ export class Authenticated extends Main {
 	}
 }
 
+class LoginForm {
+	readonly root: Locator;
+
+	constructor(protected page: Page) {
+		this.root = page?.getByRole('form', { name: 'Login' });
+	}
+
+	get username(): Locator {
+		return this.root.locator('role=textbox[name=/username/i]');
+	}
+
+	get inputPassword(): Locator {
+		return this.root.getByRole('textbox', { name: 'Password', exact: true });
+	}
+
+	get btnLogin(): Locator {
+		return this.root.getByRole('button', { name: 'Login', exact: true });
+	}
+
+	async fillForm(username: string, password: string) {
+		await this.username.fill(username);
+		await this.inputPassword.fill(password);
+	}
+}
+
+export class Login extends Main {
+	readonly form: LoginForm;
+
+	constructor(protected page: Page) {
+		super(page.getByRole('main', { name: 'Login', exact: true }));
+		this.form = new LoginForm(page);
+	}
+
+	async login(username: string, password: string) {
+		await this.form.fillForm(username, password);
+		await this.form.btnLogin.click();
+	}
+
+	get loginIframe(): FrameLocator {
+		return this.page.frameLocator('iframe[title="Login"]');
+	}
+
+	get loginIframeForm(): Locator {
+		return this.loginIframe.locator('#login-form');
+	}
+
+	get loginIframeSubmitButton(): Locator {
+		return this.loginIframe.locator('#submit');
+	}
+
+	get loginIframeError(): Locator {
+		return this.loginIframe.locator('#login-error', { hasText: 'Login failed' });
+	}
+}
+
 export class Registration extends Main {
 	constructor(protected page: Page) {
 		super(page.getByRole('main'));
-	}
-
-	get loginForm(): Locator {
-		return this.page.getByRole('form', { name: 'Login', exact: true });
 	}
 
 	get btnSendInstructions(): Locator {
@@ -35,10 +106,6 @@ export class Registration extends Main {
 
 	get btnReset(): Locator {
 		return this.page.locator('role=button[name="Reset"]');
-	}
-
-	get btnLogin(): Locator {
-		return this.page.locator('role=button[name="Login"]');
 	}
 
 	get btnLoginWithSaml(): Locator {
@@ -98,22 +165,30 @@ export class Registration extends Main {
 	}
 
 	get registrationDisabledCallout(): Locator {
-		return this.page.locator('role=status >> text=/New user registration is currently disabled/');
+		return this.page.getByRole('status').filter({ hasText: 'New user registration is currently disabled' });
 	}
 
-	get loginIframe(): FrameLocator {
-		return this.page.frameLocator('iframe[title="Login"]');
+	/** Opens an invite url, e.g. `/invite/<id>`. */
+	async gotoInvite(inviteId: string): Promise<void> {
+		await this.goto(`/invite/${inviteId}`);
 	}
 
-	get loginIframeForm(): Locator {
-		return this.loginIframe.locator('#login-form');
+	/**
+	 * Opens the secret registration url, e.g. `/register/<secret>`.
+	 *
+	 * Depending on `Accounts_RegistrationForm` the page settles on the register form or on an
+	 * invalid-secret callout, and neither renders a `main` landmark - so the caller says which it expects.
+	 */
+	async gotoWithSecret(secret: string, until: Locator): Promise<void> {
+		await this.goto(`/register/${secret}`, until);
 	}
 
-	get loginIframeSubmitButton(): Locator {
-		return this.loginIframe.locator('#submit');
+	/** Opens the password reset url for a token. */
+	async gotoResetPassword(token: string): Promise<void> {
+		await this.goto(`/reset-password/${token}`, this.inputPassword);
 	}
 
-	get loginIframeError(): Locator {
-		return this.loginIframe.locator('#login-error', { hasText: 'Login failed' });
+	get registrationInvalidUrlCallout(): Locator {
+		return this.page.getByRole('status').filter({ hasText: 'The URL provided is invalid' });
 	}
 }

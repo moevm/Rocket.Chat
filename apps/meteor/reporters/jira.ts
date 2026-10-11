@@ -1,6 +1,58 @@
 import type { Reporter, TestCase, TestResult } from '@playwright/test/reporter';
 import fetch from 'node-fetch';
 
+const LOG = '[JIRA reporter]';
+
+const escapeJqlTextSearch = (value: string): string => value.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
+
+export const createJiraSearchParams = (summary: string) =>
+	new URLSearchParams({
+		jql: `project = FLAKY AND summary ~ '"${escapeJqlTextSearch(summary)}"'`,
+		fields: 'summary',
+	});
+
+/** Jira REST API v3 expects `description` as Atlassian Document Format, not a plain string. */
+const EMPTY_ADF_DESCRIPTION = {
+	type: 'doc',
+	version: 1,
+	content: [] as const,
+};
+
+type JiraCommentDetails = {
+	run: number;
+	author: string;
+	pr: number;
+	testUrl: string;
+	runUrl: string;
+};
+
+export const createJiraCommentBody = ({ run, author, pr, testUrl, runUrl }: JiraCommentDetails) => ({
+	type: 'doc',
+	version: 1,
+	content: [
+		{
+			type: 'paragraph',
+			content: [{ type: 'text', text: `Test run ${run} failed` }],
+		},
+		{
+			type: 'paragraph',
+			content: [{ type: 'text', text: `author: ${author}` }],
+		},
+		{
+			type: 'paragraph',
+			content: [{ type: 'text', text: `PR: ${pr}` }],
+		},
+		{
+			type: 'paragraph',
+			content: [{ type: 'text', text: testUrl, marks: [{ type: 'link', attrs: { href: testUrl } }] }],
+		},
+		{
+			type: 'paragraph',
+			content: [{ type: 'text', text: runUrl, marks: [{ type: 'link', attrs: { href: runUrl } }] }],
+		},
+	],
+});
+
 class JIRAReporter implements Reporter {
 	private url: string;
 
@@ -42,11 +94,46 @@ class JIRAReporter implements Reporter {
 		this.pr = options.pr;
 	}
 
+	private static async ensureJiraOk(response: Awaited<ReturnType<typeof fetch>>, context: string): Promise<void> {
+		if (response.ok) {
+			return;
+		}
+		const text = await response.text();
+		const preview = text.length > 800 ? `${text.slice(0, 800)}...` : text;
+		throw new Error(`${LOG} ${context}: HTTP ${response.status} ${response.statusText}. Body: ${preview}`);
+	}
+
+	private async postComment(issue: string, test: TestCase, payload: { run: number; headSha: string }): Promise<void> {
+		const { location } = test;
+		const testUrl = `https://github.com/RocketChat/Rocket.Chat/blob/${payload.headSha}${location.file.replace(
+			'/home/runner/work/Rocket.Chat/Rocket.Chat',
+			'',
+		)}#L${location.line}`;
+
+		const commentRes = await fetch(`${this.url}/rest/api/3/issue/${issue}/comment`, {
+			method: 'POST',
+			body: JSON.stringify({
+				body: createJiraCommentBody({
+					run: payload.run,
+					author: this.author,
+					pr: this.pr,
+					testUrl,
+					runUrl: this.run_url,
+				}),
+			}),
+			headers: {
+				'Content-Type': 'application/json',
+				'Authorization': `Basic ${this.apiKey}`,
+			},
+		});
+		await JIRAReporter.ensureJiraOk(commentRes, `comment on ${issue}`);
+	}
+
 	async onTestEnd(test: TestCase, result: TestResult) {
 		try {
 			await this._onTestEnd(test, result);
 		} catch (error) {
-			console.error('Error sending test result to JIRA', error);
+			console.error(`${LOG} Error sending test result to JIRA`, error);
 		}
 	}
 
@@ -77,47 +164,32 @@ class JIRAReporter implements Reporter {
 			headSha: this.headSha,
 		};
 
-		console.log(`Sending test result to JIRA: ${JSON.stringify(payload)}`);
+		console.log(`${LOG} preparing notification for flaky/unexpected failure: ${JSON.stringify(payload)}`);
 
 		// first search and check if there is an existing issue
-		// replace all ()[]- with nothing
-		const search = await fetch(
-			`${this.url}/rest/api/3/search?${new URLSearchParams({
-				jql: `project = FLAKY AND summary ~ '${payload.name.replace(/[\(\)\[\]-]/g, '')}'`,
-			})}`,
-			{
-				method: 'GET',
-				headers: {
-					'Content-Type': 'application/json',
-					'Authorization': `Basic ${this.apiKey}`,
-				},
+		const search = await fetch(`${this.url}/rest/api/3/search/jql?${createJiraSearchParams(payload.name)}`, {
+			method: 'GET',
+			headers: {
+				'Content-Type': 'application/json',
+				'Authorization': `Basic ${this.apiKey}`,
 			},
-		);
+		});
 
-		if (!search.ok) {
-			throw new Error(
-				`JIRA: Failed to search for existing issue: ${search.statusText}.` +
-					`${this.url}/rest/api/3/search${new URLSearchParams({
-						jql: `project = FLAKY AND summary ~ '${payload.name}'`,
-					})}`,
-			);
-		}
+		await JIRAReporter.ensureJiraOk(search, 'search for existing issue');
 
-		const { issues } = await search.json();
+		const { issues } = JSON.parse(await search.text()) as {
+			issues: { key: string; fields: { summary: string } }[];
+		};
 
-		const existing = issues.find(
-			(issue: {
-				fields: {
-					summary: string;
-				};
-			}) => issue.fields.summary === payload.name,
-		);
+		console.log(`${LOG} JQL search returned ${issues.length} candidate issue(s) (exact summary match is applied next).`);
+
+		const existing = issues.find((issue) => issue.fields.summary === payload.name);
 
 		if (existing) {
-			const { location } = test;
+			console.log(`${LOG} exact summary match on ${existing.key}; no new issue will be created (comment / label only).`);
 
 			if (this.pr === 0) {
-				await fetch(`${this.url}/rest/api/3/issue/${existing.key}`, {
+				const labelRes = await fetch(`${this.url}/rest/api/3/issue/${existing.key}`, {
 					method: 'PUT',
 					body: JSON.stringify({
 						update: {
@@ -133,33 +205,21 @@ class JIRAReporter implements Reporter {
 						'Authorization': `Basic ${this.apiKey}`,
 					},
 				});
+				await JIRAReporter.ensureJiraOk(labelRes, `add label flaky_Develop on ${existing.key}`);
+				console.log(`${LOG} label update OK for ${existing.key}`);
 			}
 
-			await fetch(`${this.url}/rest/api/3/issue/${existing.key}/comment`, {
-				method: 'POST',
-				body: JSON.stringify({
-					body: `Test run ${payload.run} failed
-author: ${this.author}
-PR: ${this.pr}
-https://github.com/RocketChat/Rocket.Chat/blob/${payload.headSha}/${location.file.replace(
-						'/home/runner/work/Rocket.Chat/Rocket.Chat',
-						'',
-					)}#L${location.line}:${location.column}
-${this.run_url}
-`,
-				}),
-				headers: {
-					'Content-Type': 'application/json',
-					'Authorization': `Basic ${this.apiKey}`,
-				},
-			});
+			await this.postComment(existing.key, test, payload);
+			console.log(`${LOG} comment posted on ${existing.key} for run ${payload.run}.`);
 			return;
 		}
+
+		console.log(`${LOG} no issue with identical summary; creating new FLAKY issue.`);
 
 		const data: {
 			fields: {
 				summary: string;
-				description: string;
+				description: typeof EMPTY_ADF_DESCRIPTION;
 				issuetype: {
 					name: string;
 				};
@@ -170,7 +230,7 @@ ${this.run_url}
 		} = {
 			fields: {
 				summary: payload.name,
-				description: '',
+				description: EMPTY_ADF_DESCRIPTION,
 				issuetype: {
 					name: 'Tech Debt',
 				},
@@ -190,28 +250,18 @@ ${this.run_url}
 			},
 		});
 
-		const issue = (await responseIssue.json()).key;
+		await JIRAReporter.ensureJiraOk(responseIssue, 'create issue');
 
-		const { location } = test;
+		const created = JSON.parse(await responseIssue.text()) as { key?: string };
+		const issue = created.key;
+		if (!issue) {
+			throw new Error(`${LOG} create issue response had no key: ${JSON.stringify(created)}`);
+		}
 
-		await fetch(`${this.url}/rest/api/3/issue/${issue}/comment`, {
-			method: 'POST',
-			body: JSON.stringify({
-				body: `Test run ${payload.run} failed
-author: ${this.author}
-PR: ${this.pr}
-https://github.com/RocketChat/Rocket.Chat/blob/${payload.headSha}/${location.file.replace(
-					'/home/runner/work/Rocket.Chat/Rocket.Chat',
-					'',
-				)}#L${location.line}:${location.column},
-${this.run_url}
-`,
-			}),
-			headers: {
-				'Content-Type': 'application/json',
-				'Authorization': `Basic ${this.apiKey}`,
-			},
-		});
+		console.log(`${LOG} created issue ${issue}.`);
+
+		await this.postComment(issue, test, payload);
+		console.log(`${LOG} comment posted on ${issue}; done for run ${payload.run}.`);
 	}
 }
 

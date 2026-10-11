@@ -1,10 +1,4 @@
-import type {
-	ILivechatDepartmentAgents,
-	ILivechatInquiryRecord,
-	ISetting,
-	ISubscription,
-	RocketChatRecordDeleted,
-} from '@rocket.chat/core-typings';
+import type { ILivechatDepartmentAgents, ILivechatInquiryRecord, ISubscription, RocketChatRecordDeleted } from '@rocket.chat/core-typings';
 import type {
 	IAnalyticsModel,
 	IAvatarsModel,
@@ -19,7 +13,6 @@ import type {
 	IEmojiCustomModel,
 	IExportOperationsModel,
 	IFederationKeysModel,
-	IFederationServersModel,
 	IInstanceStatusModel,
 	IIntegrationHistoryModel,
 	IIntegrationsModel,
@@ -48,6 +41,7 @@ import type {
 	IOAuthAppsModel,
 	IOAuthAuthCodesModel,
 	IOAuthAccessTokensModel,
+	ILoginCodesModel,
 	IOAuthRefreshTokensModel,
 	IOEmbedCacheModel,
 	IPushTokenModel,
@@ -77,18 +71,17 @@ import type {
 	IAppsPersistenceModel,
 	IAppLogsModel,
 	IImportsModel,
-	IFederationRoomEventsModel,
-	IAppsTokensModel,
 	IAuditLogModel,
 	ICronHistoryModel,
 	IMigrationsModel,
 	IModerationReportsModel,
 	IWorkspaceCredentialsModel,
 	IMediaCallsModel,
-	IMediaCallChannelsModel,
 	IMediaCallNegotiationsModel,
 	ICallHistoryModel,
 	IAbacAttributesModel,
+	ITwoFactorChallengesModel,
+	ISamlUsedAssertionsModel,
 } from '@rocket.chat/model-typings';
 import type { Collection, Db } from 'mongodb';
 
@@ -110,13 +103,15 @@ import {
 	LivechatVisitorsRaw,
 	RolesRaw,
 	RoomsRaw,
-	SettingsRaw,
 	SubscriptionsRaw,
 	TeamRaw,
 	UsersRaw,
 	UsersSessionsRaw,
 	AbacAttributesRaw,
 	ServerEventsRaw,
+	SamlUsedAssertionsRaw,
+	CronHistoryRaw,
+	VideoConferenceRaw,
 } from './modelClasses';
 import { proxify, registerModel } from './proxify';
 
@@ -129,11 +124,13 @@ export * from './modelClasses';
 
 export * from './dummy/ReadReceipts';
 
+export * from './helpers';
+
 export { registerModel } from './proxify';
 export { type Updater, UpdaterImpl } from './updater';
+export { readSecondaryPreferred } from './readSecondaryPreferred';
 
 export const Apps = proxify<IAppsModel>('IAppsModel');
-export const AppsTokens = proxify<IAppsTokensModel>('IAppsTokensModel');
 export const AppsPersistence = proxify<IAppsPersistenceModel>('IAppsPersistenceModel');
 export const AppLogs = proxify<IAppLogsModel>('IAppLogsModel');
 export const Analytics = proxify<IAnalyticsModel>('IAnalyticsModel');
@@ -149,9 +146,7 @@ export const EmailInbox = proxify<IEmailInboxModel>('IEmailInboxModel');
 export const EmailMessageHistory = proxify<IEmailMessageHistoryModel>('IEmailMessageHistoryModel');
 export const EmojiCustom = proxify<IEmojiCustomModel>('IEmojiCustomModel');
 export const ExportOperations = proxify<IExportOperationsModel>('IExportOperationsModel');
-export const FederationServers = proxify<IFederationServersModel>('IFederationServersModel');
 export const FederationKeys = proxify<IFederationKeysModel>('IFederationKeysModel');
-export const FederationRoomEvents = proxify<IFederationRoomEventsModel>('IFederationRoomEventsModel');
 export const ImportData = proxify<IImportDataModel>('IImportDataModel');
 export const Imports = proxify<IImportsModel>('IImportsModel');
 export const InstanceStatus = proxify<IInstanceStatusModel>('IInstanceStatusModel');
@@ -176,7 +171,6 @@ export const LoginServiceConfiguration = proxify<ILoginServiceConfigurationModel
 export const Messages = proxify<IMessagesModel>('IMessagesModel');
 export const ScheduledMessages = proxify<IScheduledMessagesModel>('IScheduledMessagesModel');
 export const MediaCalls = proxify<IMediaCallsModel>('IMediaCallsModel');
-export const MediaCallChannels = proxify<IMediaCallChannelsModel>('IMediaCallChannelsModel');
 export const MediaCallNegotiations = proxify<IMediaCallNegotiationsModel>('IMediaCallNegotiationsModel');
 export const NotificationQueue = proxify<INotificationQueueModel>('INotificationQueueModel');
 export const Nps = proxify<INpsModel>('INpsModel');
@@ -184,11 +178,13 @@ export const NpsVote = proxify<INpsVoteModel>('INpsVoteModel');
 export const OAuthApps = proxify<IOAuthAppsModel>('IOAuthAppsModel');
 export const OAuthAuthCodes = proxify<IOAuthAuthCodesModel>('IOAuthAuthCodesModel');
 export const OAuthAccessTokens = proxify<IOAuthAccessTokensModel>('IOAuthAccessTokensModel');
+export const LoginCodes = proxify<ILoginCodesModel>('ILoginCodesModel');
 export const OAuthRefreshTokens = proxify<IOAuthRefreshTokensModel>('IOAuthRefreshTokensModel');
 export const OEmbedCache = proxify<IOEmbedCacheModel>('IOEmbedCacheModel');
 export const PushToken = proxify<IPushTokenModel>('IPushTokenModel');
 export const Permissions = proxify<IPermissionsModel>('IPermissionsModel');
 export const ReadReceipts = proxify<IReadReceiptsModel>('IReadReceiptsModel');
+export const ReadReceiptsArchive = proxify<IReadReceiptsModel>('IReadReceiptsArchiveModel');
 export const MessageReads = proxify<IMessageReadsModel>('IMessageReadsModel');
 export const Reports = proxify<IReportsModel>('IReportsModel');
 export const Roles = proxify<IRolesModel>('IRolesModel');
@@ -217,9 +213,10 @@ export const Migrations = proxify<IMigrationsModel>('IMigrationsModel');
 export const ModerationReports = proxify<IModerationReportsModel>('IModerationReportsModel');
 export const WorkspaceCredentials = proxify<IWorkspaceCredentialsModel>('IWorkspaceCredentialsModel');
 export const AbacAttributes = proxify<IAbacAttributesModel>('IAbacAttributesModel');
+export const TwoFactorChallenges = proxify<ITwoFactorChallengesModel>('ITwoFactorChallengesModel');
+export const SamlUsedAssertions = proxify<ISamlUsedAssertionsModel>('ISamlUsedAssertionsModel');
 
 export function registerServiceModels(db: Db, trash?: Collection<RocketChatRecordDeleted<any>>): void {
-	registerModel('ISettingsModel', () => new SettingsRaw(db, trash as Collection<RocketChatRecordDeleted<ISetting>>));
 	registerModel('IUsersSessionsModel', () => new UsersSessionsRaw(db));
 	registerModel('IUsersModel', () => new UsersRaw(db));
 
@@ -254,4 +251,9 @@ export function registerServiceModels(db: Db, trash?: Collection<RocketChatRecor
 	registerModel('ILivechatVisitorsModel', () => new LivechatVisitorsRaw(db));
 	registerModel('IAbacAttributesModel', () => new AbacAttributesRaw(db));
 	registerModel('IServerEventsModel', () => new ServerEventsRaw(db));
+	// The video-conference stream decides who may follow a call by reading it, and that check runs in whichever
+	// process holds the stream — ddp-streamer, once the services are split out.
+	registerModel('IVideoConferenceModel', () => new VideoConferenceRaw(db));
+	registerModel('ISamlUsedAssertionsModel', () => new SamlUsedAssertionsRaw(db));
+	registerModel('ICronHistoryModel', () => new CronHistoryRaw(db));
 }

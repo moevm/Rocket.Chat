@@ -1,18 +1,18 @@
 import type { Locator, Page } from '@playwright/test';
 
-import { Account } from './account';
+import { Account, AccountSectionsHref } from './account';
 import { EnterPasswordModal } from './fragments/modals';
 
 export class AccountSecurity extends Account {
+	protected readonly route = AccountSectionsHref.security;
+
+	protected readonly title = 'Security';
+
 	private readonly enterPasswordModal: EnterPasswordModal;
 
 	constructor(page: Page) {
 		super(page);
 		this.enterPasswordModal = new EnterPasswordModal(page);
-	}
-
-	goto() {
-		return this.page.goto('/account/security');
 	}
 
 	get inputNewPassword() {
@@ -48,7 +48,7 @@ export class AccountSecurity extends Account {
 	}
 
 	get security2FASection(): Locator {
-		return this.page.locator('[role="button"]:has-text("Two Factor Authentication")');
+		return this.page.locator('[role="button"]:has-text("Two factor authentication")');
 	}
 
 	get securityE2EEncryptionSection(): Locator {

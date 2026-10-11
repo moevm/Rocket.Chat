@@ -508,6 +508,18 @@ describe('LIVECHAT - contacts', () => {
 			expect(res.body.contact.contactManager).to.be.equal(livechatAgent._id);
 		});
 
+		it('should be able to clear the contact manager', async () => {
+			const res = await request.post(api('omnichannel/contacts.update')).set(credentials).send({
+				contactId,
+				contactManager: '',
+			});
+
+			expect(res.status).to.be.equal(200);
+			expect(res.body).to.have.property('success', true);
+			expect(res.body.contact._id).to.be.equal(contactId);
+			expect(res.body.contact).to.not.have.property('contactManager');
+		});
+
 		it('should return an error if contact does not exist', async () => {
 			const res = await request
 				.post(api('omnichannel/contacts.update'))
@@ -779,10 +791,54 @@ describe('LIVECHAT - contacts', () => {
 			expect(res.body.result).to.have.property('customFields');
 			expect(res.body.result.customFields).to.have.property('cf1', '123');
 		});
+
+		it('should be able to clear the contact manager when resolving conflicts', async () => {
+			await request
+				.post(api('omnichannel/contacts.update'))
+				.set(credentials)
+				.send({
+					contactId,
+					contactManager: livechatAgent._id,
+				})
+				.expect(200);
+
+			// Create a conflict
+			await request.post(api('livechat/custom.field')).send({ token, key: 'cf1', value: '111', overwrite: true }).expect(200);
+
+			await request.post(api('livechat/custom.field')).send({ token, key: 'cf1', value: '222', overwrite: false }).expect(200);
+
+			// Verify the contact has a contact manager and conflicts
+			const contactBefore = await request.get(api('omnichannel/contacts.get')).set(credentials).query({ contactId }).expect(200);
+			expect(contactBefore.body.contact).to.have.property('contactManager', livechatAgent._id);
+			expect(contactBefore.body.contact).to.have.property('conflictingFields');
+			expect(contactBefore.body.contact.conflictingFields).to.have.lengthOf.greaterThan(0);
+
+			const res = await request
+				.post(api('omnichannel/contacts.conflicts'))
+				.set(credentials)
+				.send({
+					contactId,
+					contactManager: '',
+					customFields: {
+						cf1: '111',
+					},
+				});
+
+			expect(res.status).to.be.equal(200);
+			expect(res.body).to.have.property('success', true);
+			expect(res.body).to.have.property('result');
+			expect(res.body.result).to.not.have.property('contactManager');
+			expect(res.body.result).to.have.property('customFields');
+			expect(res.body.result.customFields).to.have.property('cf1', '111');
+
+			const contactAfter = await request.get(api('omnichannel/contacts.get')).set(credentials).query({ contactId }).expect(200);
+			expect(contactAfter.body.contact).to.not.have.property('contactManager');
+		});
 	});
 
 	describe('Contact Rooms', () => {
 		let agent: { credentials: Credentials; user: IUser & { username: string } };
+		const roomIdsToClose: string[] = [];
 
 		before(async () => {
 			await updatePermission('view-livechat-contact', ['admin']);
@@ -791,12 +847,14 @@ describe('LIVECHAT - contacts', () => {
 
 		after(async () => {
 			await restorePermissionToRoles('view-livechat-contact');
+			await Promise.all(roomIdsToClose.map((rid) => closeOmnichannelRoom(rid)));
 			await deleteUser(agent.user);
 		});
 
 		it('should create a contact and assign it to the room', async () => {
 			const visitor = await createVisitor();
 			const room = await createLivechatRoom(visitor.token);
+			roomIdsToClose.push(room._id);
 			expect(room).to.have.property('contactId').that.is.a('string');
 		});
 
@@ -820,6 +878,7 @@ describe('LIVECHAT - contacts', () => {
 			const visitor = await createVisitor(undefined, 'Visitor Name', email, phone);
 
 			const room = await createLivechatRoom(visitor.token);
+			roomIdsToClose.push(room._id);
 
 			expect(room).to.have.property('contactId', contactId);
 			expect(room).to.have.property('fname', 'Contact Name');
@@ -828,6 +887,7 @@ describe('LIVECHAT - contacts', () => {
 		it('should update room names when a contact name changes', async () => {
 			const visitor = await createVisitor();
 			const room = await createLivechatRoom(visitor.token);
+			roomIdsToClose.push(room._id);
 			expect(room).to.have.property('contactId').that.is.a('string');
 			expect(room.fname).to.not.be.equal('New Contact Name');
 
@@ -846,6 +906,7 @@ describe('LIVECHAT - contacts', () => {
 		it('should update room subscriptions when a contact name changes', async () => {
 			const response = await startANewLivechatRoomAndTakeIt({ agent: agent.credentials });
 			const { room, visitor } = response;
+			roomIdsToClose.push(room._id);
 			const newName = faker.person.fullName();
 
 			expect(room).to.have.property('contactId').that.is.a('string');
@@ -877,6 +938,7 @@ describe('LIVECHAT - contacts', () => {
 		it('should update inquiry when a contact name changes', async () => {
 			const visitor = await createVisitor();
 			const room = await createLivechatRoom(visitor.token);
+			roomIdsToClose.push(room._id);
 			expect(room).to.have.property('contactId').that.is.a('string');
 			expect(room.fname).to.not.be.equal('New Contact Name');
 

@@ -1,25 +1,27 @@
 import { cronJobs } from '@rocket.chat/cron';
 import type { Logger } from '@rocket.chat/logger';
-import { ScheduledMessages, Rooms, Users, Messages } from '@rocket.chat/models';
-import { Message } from '@rocket.chat/core-services';
+import { ScheduledMessages, Rooms, Users } from '@rocket.chat/models';
 
+import { executeSendMessage } from '../meteor-methods/messages/sendMessage';
+
+const MAX_MESSAGES_PER_TICK = 50;
+const CLEANUP_AFTER_MS = 30 * 24 * 60 * 60 * 1000;
 
 export async function processScheduledMessages(logger: Logger): Promise<void> {
 	try {
 		const now = new Date();
 		logger.debug(`Checking for scheduled messages at ${now.toISOString()}`);
 
-		const messagesToSend = await ScheduledMessages.findReadyToSend(now).toArray();
+		let processed = 0;
 
-		logger.debug(`Found ${messagesToSend.length} scheduled messages ready to send`);
+		while (processed < MAX_MESSAGES_PER_TICK) {
+			const scheduledMsg = await ScheduledMessages.claimNextReadyToSend(now);
+			if (!scheduledMsg) {
+				break;
+			}
 
-		if (messagesToSend.length === 0) {
-			return;
-		}
+			processed += 1;
 
-		logger.info(`Processing ${messagesToSend.length} scheduled messages`);
-
-		for (const scheduledMsg of messagesToSend) {
 			try {
 				const room = await Rooms.findOneById(scheduledMsg.rid);
 				if (!room) {
@@ -35,19 +37,18 @@ export async function processScheduledMessages(logger: Logger): Promise<void> {
 					continue;
 				}
 
-				const sentMessage = await Message.sendMessage({
-					fromId: scheduledMsg.userId,
-					rid: scheduledMsg.rid,
-					msg: scheduledMsg.msg,
-				});
-
-				const savedMessage = await Messages.findOneById(sentMessage._id);
-				if (!savedMessage) {
-					throw new Error('Message was not saved to database');
-				}
+				await executeSendMessage(
+					scheduledMsg.userId,
+					{
+						rid: scheduledMsg.rid,
+						msg: scheduledMsg.msg,
+						...(scheduledMsg.tmid && { tmid: scheduledMsg.tmid }),
+						...(scheduledMsg.tshow !== undefined && { tshow: scheduledMsg.tshow }),
+					},
+					{ previewUrls: scheduledMsg.previewUrls },
+				);
 
 				await ScheduledMessages.updateStatus(scheduledMsg._id, 'sent', new Date());
-
 				logger.info(`Scheduled message ${scheduledMsg._id} sent successfully`);
 			} catch (error) {
 				logger.error(`Failed to send scheduled message ${scheduledMsg._id}:`, error);
@@ -60,6 +61,12 @@ export async function processScheduledMessages(logger: Logger): Promise<void> {
 				);
 			}
 		}
+
+		if (processed > 0) {
+			logger.info(`Processed ${processed} scheduled messages`);
+		}
+
+		await ScheduledMessages.deleteOldMessages(new Date(Date.now() - CLEANUP_AFTER_MS));
 	} catch (error) {
 		logger.error('Error processing scheduled messages:', error);
 		if (error instanceof Error) {

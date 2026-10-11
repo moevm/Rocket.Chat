@@ -1,13 +1,27 @@
-import type { IUser } from '@rocket.chat/core-typings';
+import type { IUser, MediaCallContact, MediaCallSignedContact } from '@rocket.chat/core-typings';
 import { Emitter } from '@rocket.chat/emitter';
-import { isClientMediaSignal } from '@rocket.chat/media-signaling';
-import type { CallRejectedReason, ClientMediaSignal, ClientMediaSignalBody, ServerMediaSignal } from '@rocket.chat/media-signaling';
+import type {
+	CallFeature,
+	CallRejectedReason,
+	ClientMediaSignal,
+	ClientMediaSignalBody,
+	ServerMediaSignal,
+} from '@rocket.chat/media-signaling';
 
 import { mediaCallDirector } from './CallDirector';
 import { getDefaultSettings } from './getDefaultSettings';
 import { stripSensitiveDataFromSignal } from './stripSensitiveData';
-import type { IMediaCallServer, IMediaCallServerSettings, MediaCallServerEvents } from '../definition/IMediaCallServer';
-import { CallRejectedError, type GetActorContactOptions, type InternalCallParams } from '../definition/common';
+import type {
+	IMediaCallServer,
+	IMediaCallServerSettings,
+	MediaCallHooks,
+	MediaCallServerEvents,
+	PreCallCreatedHookParams,
+	PreCallCreatedHookResult,
+	VoipPushNotificationEventType,
+} from '../definition/IMediaCallServer';
+import { CallRejectedError } from '../definition/common';
+import type { SignalProcessingOptions, GetActorContactOptions, InternalCallParams } from '../definition/common';
 import { InternalCallProvider } from '../internal/InternalCallProvider';
 import { GlobalSignalProcessor } from '../internal/SignalProcessor';
 import { logger } from '../logger';
@@ -23,6 +37,8 @@ export class MediaCallServer implements IMediaCallServer {
 	private signalProcessor: GlobalSignalProcessor;
 
 	private settings: IMediaCallServerSettings;
+
+	private hooks: MediaCallHooks = {};
 
 	public emitter: Emitter<MediaCallServerEvents>;
 
@@ -41,15 +57,8 @@ export class MediaCallServer implements IMediaCallServer {
 		});
 	}
 
-	public receiveSignal(fromUid: IUser['_id'], signal: ClientMediaSignal): void {
-		if (!isClientMediaSignal(signal)) {
-			logger.error({ msg: 'The Media Signal Server received an invalid client signal object' });
-			throw new Error('invalid-signal');
-		}
-
-		this.signalProcessor.processSignal(fromUid, signal).catch((err) => {
-			logger.error({ msg: 'Failed to process client signal', err, type: signal.type });
-		});
+	public async receiveSignal(fromUid: IUser['_id'], signal: ClientMediaSignal, options: SignalProcessingOptions = {}): Promise<void> {
+		return this.signalProcessor.processSignal(fromUid, signal, options);
 	}
 
 	public sendSignal(toUid: IUser['_id'], signal: ServerMediaSignal): void {
@@ -70,6 +79,15 @@ export class MediaCallServer implements IMediaCallServer {
 		this.emitter.emit('historyUpdate', params);
 	}
 
+	public sendPushNotification(params: { callId: string; event: VoipPushNotificationEventType }): void {
+		if (!this.settings.mobileRinging) {
+			return;
+		}
+		logger.debug({ msg: 'MediaCallServer.sendPushNotification', params });
+
+		this.emitter.emit('pushNotificationRequest', params);
+	}
+
 	public async requestCall(params: InternalCallParams): Promise<void> {
 		try {
 			const fullParams = await this.parseCallContacts(params);
@@ -77,6 +95,7 @@ export class MediaCallServer implements IMediaCallServer {
 			await this.createCall(fullParams);
 		} catch (error) {
 			let rejectionReason: CallRejectedReason = 'unsupported';
+
 			if (error && typeof error === 'object' && error instanceof CallRejectedError) {
 				rejectionReason = error.callRejectedReason;
 			} else {
@@ -129,8 +148,24 @@ export class MediaCallServer implements IMediaCallServer {
 		this.settings = settings;
 	}
 
+	public setHooks(hooks: MediaCallHooks): void {
+		this.hooks = hooks;
+	}
+
+	public async runPreCallCreatedHook(params: PreCallCreatedHookParams): Promise<PreCallCreatedHookResult> {
+		if (!this.hooks.onPreCallCreated) {
+			return { prevented: false };
+		}
+
+		return this.hooks.onPreCallCreated(params);
+	}
+
 	public async permissionCheck(uid: IUser['_id'], callType: 'internal' | 'external' | 'any'): Promise<boolean> {
 		return this.settings.permissionCheck(uid, callType);
+	}
+
+	public isFeatureAvailableForUser(uid: IUser['_id'], feature: CallFeature): boolean {
+		return this.settings.isFeatureAvailableForUser(uid, feature);
 	}
 
 	/**
@@ -204,6 +239,8 @@ export class MediaCallServer implements IMediaCallServer {
 			}
 		}
 
+		const requestedBy = params.requestedBy && (await this.parseRequesterContact(params.requestedBy, caller));
+
 		return {
 			...params,
 			caller: {
@@ -211,7 +248,20 @@ export class MediaCallServer implements IMediaCallServer {
 				contractId: params.caller.contractId,
 			},
 			callee,
+			...(requestedBy && { requestedBy }),
 		};
+	}
+
+	private async parseRequesterContact(requestedBy: MediaCallSignedContact, caller: MediaCallContact): Promise<MediaCallSignedContact> {
+		// On anything that isn't a transfer, the requester is the caller themselves, whose
+		// contact information was just loaded
+		if (requestedBy.type === caller.type && requestedBy.id === caller.id) {
+			return { ...caller, ...requestedBy };
+		}
+
+		const contact = await mediaCallDirector.cast.getContactForActor(requestedBy, { requiredType: requestedBy.type });
+
+		return contact ? { ...contact, ...requestedBy } : requestedBy;
 	}
 
 	private getCalleeContactOptions(): GetActorContactOptions {

@@ -27,29 +27,3 @@ export const useScheduleMessage = () => {
 		},
 	});
 };
-
-export const useGetScheduledMessages = (roomId?: string) => {
-	const getScheduledMessages = useEndpoint('GET', '/v1/chat.getScheduledMessages');
-
-	return useMutation({
-		mutationFn: async () => {
-			const result = await getScheduledMessages({
-				roomId,
-				status: 'pending',
-				count: 50,
-				offset: 0,
-			});
-			return result.scheduledMessages;
-		},
-	});
-};
-
-export const useCancelScheduledMessage = () => {
-	const cancelScheduledMessage = useEndpoint('DELETE', '/v1/chat.cancelScheduledMessage');
-
-	return useMutation({
-		mutationFn: async (messageId: string) => {
-			await cancelScheduledMessage({ messageId });
-		},
-	});
-};

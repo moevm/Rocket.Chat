@@ -37,6 +37,36 @@ export class ScheduledMessagesRaw extends BaseRaw<IScheduledMessage> implements 
 		return this.find(query, options);
 	}
 
+	async claimNextReadyToSend(now: Date): Promise<IScheduledMessage | null> {
+		const staleProcessingBefore = new Date(now.getTime() - 5 * 60 * 1000);
+
+		return this.findOneAndUpdate(
+			{
+				$or: [
+					{
+						status: 'pending',
+						scheduledAt: { $lte: now },
+					},
+					{
+						status: 'processing',
+						scheduledAt: { $lte: now },
+						updatedAt: { $lte: staleProcessingBefore },
+					},
+				],
+			},
+			{
+				$set: {
+					status: 'processing',
+					updatedAt: new Date(),
+				},
+			},
+			{
+				sort: { scheduledAt: 1 },
+				returnDocument: 'after',
+			},
+		);
+	}
+
 	findByRoomId(rid: RoomID, options?: FindOptions<IScheduledMessage>): FindPaginated<FindCursor<IScheduledMessage>> {
 		const query: Filter<IScheduledMessage> = { rid };
 		return this.findPaginated(query, options);
@@ -97,16 +127,19 @@ export class ScheduledMessagesRaw extends BaseRaw<IScheduledMessage> implements 
 		);
 	}
 
-	async cancelMessage(messageId: IScheduledMessage['_id'], userId: IUser['_id']): Promise<UpdateResult> {
-		return this.updateOne(
-			{ _id: messageId, userId, status: 'pending' },
-			{
-				$set: {
-					status: 'cancelled',
-					updatedAt: new Date(),
-				},
+	async cancelMessage(messageId: IScheduledMessage['_id'], userId?: IUser['_id']): Promise<UpdateResult> {
+		const query: Filter<IScheduledMessage> = {
+			_id: messageId,
+			status: 'pending',
+			...(userId && { userId }),
+		};
+
+		return this.updateOne(query, {
+			$set: {
+				status: 'cancelled',
+				updatedAt: new Date(),
 			},
-		);
+		});
 	}
 
 	async deleteOldMessages(olderThan: Date): Promise<DeleteResult> {

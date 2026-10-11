@@ -3,7 +3,7 @@ import { useSetting } from '@rocket.chat/ui-contexts';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useFileInput } from '../../../../../../hooks/useFileInput';
+import { useFileInput } from './useFileInput';
 import { useChat } from '../../../../contexts/ChatContext';
 
 const fileInputProps = { type: 'file', multiple: true };
@@ -31,7 +31,7 @@ export const useFileUploadAction = (disabled: boolean): GenericMenuItemProps => 
 				});
 				return file;
 			});
-			chat?.flows.uploadFiles(filesToUpload, resetFileInput);
+			chat?.flows.uploadFiles({ files: filesToUpload, resetFileInput });
 		};
 
 		fileInputRef.current?.addEventListener('change', handleUploadChange);

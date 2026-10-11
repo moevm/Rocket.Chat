@@ -1,5 +1,5 @@
 import type { IRouterPaths, RouteName, RouterPathPattern } from '@rocket.chat/ui-contexts';
-import { type ElementType, type ReactNode } from 'react';
+import type { ElementType, ReactNode } from 'react';
 
 import { appLayout } from './appLayout';
 import { router } from '../providers/RouterProvider';
@@ -11,9 +11,9 @@ type GroupPrefix<TGroupName extends GroupName> = IRouterPaths[`${TGroupName}-ind
 
 type RouteNamesOf<TGroupName extends GroupName> = (
 	| keyof {
-			[TRouteName in RouteName as IRouterPaths[TRouteName]['pattern'] extends `${GroupPrefix<TGroupName>}/${string}`
-				? TRouteName
-				: never]: never;
+			[
+				TRouteName in RouteName as IRouterPaths[TRouteName]['pattern'] extends `${GroupPrefix<TGroupName>}/${string}` ? TRouteName : never
+			]: never;
 	  }
 	| `${GroupName}-index`
 ) &

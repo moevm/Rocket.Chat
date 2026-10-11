@@ -12,12 +12,10 @@ export async function getResourceLanguages() {
 }
 
 export const getLanguagePlurals = (language: string): string[] => {
-	// @ts-expect-error - faulty module resolution from ESM package
 	if (!i18next.isInitialized) {
-		i18next.init({ initImmediate: false });
+		i18next.init({ initAsync: false });
 	}
 
-	// @ts-expect-error - faulty module resolution from ESM package
 	return i18next.services.pluralResolver.getSuffixes(language).map((suffix: string) => suffix.slice(1));
 };
 
@@ -30,7 +28,7 @@ export async function readResource(language: string): Promise<Record<string, unk
 	if (typeof result !== 'object' || result === null || Array.isArray(result)) {
 		throw new Error(`Invalid resource format for language "${language}"`);
 	}
-	return result;
+	return result as Record<string, unknown>;
 }
 
 export async function writeResource(language: string, resource: unknown) {

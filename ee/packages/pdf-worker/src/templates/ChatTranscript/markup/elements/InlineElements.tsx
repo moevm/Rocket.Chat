@@ -8,7 +8,7 @@ import ItalicSpan from './ItalicSpan';
 import LinkSpan from './LinkSpan';
 import StrikeSpan from './StrikeSpan';
 
-type InlineElementsProps = {
+export type InlineElementsProps = {
 	children: MessageParser.Inlines[];
 };
 
@@ -24,6 +24,9 @@ const InlineElements = ({ children }: InlineElementsProps) => (
 
 				case 'ITALIC':
 					return <ItalicSpan key={index}>{child.value}</ItalicSpan>;
+
+				case 'SPOILER':
+					return <InlineElements key={index}>{child.value}</InlineElements>;
 
 				case 'LINK':
 					return <LinkSpan key={index} label={Array.isArray(child.value.label) ? child.value.label : [child.value.label]} />;

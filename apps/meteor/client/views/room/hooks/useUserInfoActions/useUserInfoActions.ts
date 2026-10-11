@@ -7,6 +7,7 @@ import type { ComponentProps } from 'react';
 import { useMemo } from 'react';
 
 import { useAddUserAction } from './actions/useAddUserAction';
+import { useBanUserAction } from './actions/useBanUserAction';
 import { useBlockUserAction } from './actions/useBlockUserAction';
 import { useChangeLeaderAction } from './actions/useChangeLeaderAction';
 import { useChangeModeratorAction } from './actions/useChangeModeratorAction';
@@ -44,19 +45,24 @@ type UserInfoActionWithContent = {
 
 export type UserInfoAction = UserInfoActionWithContent | UserInfoActionWithOnlyIcon;
 
-type UserMenuAction = {
+export type UserMenuAction = {
 	id: string;
 	title: string;
 	items: GenericMenuItemProps[];
 }[];
 
 type UserInfoActionsParams = {
-	user: Pick<IUser, '_id' | 'username' | 'name' | 'freeSwitchExtension'>;
+	user: Pick<IUser, '_id' | 'username' | 'name' | 'freeSwitchExtension' | 'federated'>;
 	rid: IRoom['_id'];
 	reload?: () => void;
 	size?: number;
 	isMember?: boolean;
 	isInvited?: boolean;
+};
+
+type UseUserInfoActionsResult = {
+	actions: [string, UserInfoAction][];
+	menuActions: UserMenuAction | undefined;
 };
 
 export const useUserInfoActions = ({
@@ -66,7 +72,7 @@ export const useUserInfoActions = ({
 	size = 2,
 	isMember,
 	isInvited,
-}: UserInfoActionsParams): { actions: [string, UserInfoAction][]; menuActions: any | undefined } => {
+}: UserInfoActionsParams): UseUserInfoActionsResult => {
 	const addUser = useAddUserAction(user, rid, reload);
 	const blockUser = useBlockUserAction(user, rid);
 	const changeLeader = useChangeLeaderAction(user, rid);
@@ -77,6 +83,7 @@ export const useUserInfoActions = ({
 	const ignoreUser = useIgnoreUserAction(user, rid);
 	const muteUser = useMuteUserAction(user, rid);
 	const removeUser = useRemoveUserAction(user, rid, reload, isInvited);
+	const banUser = useBanUserAction(user, rid);
 	const videoCall = useVideoCallAction(user);
 	const reportUserOption = useReportUser(user);
 	const isLayoutEmbedded = useEmbeddedLayout();
@@ -88,15 +95,17 @@ export const useUserInfoActions = ({
 			...(openDirectMessage && !isLayoutEmbedded && { openDirectMessage }),
 			...(videoCall && { videoCall }),
 			...(userMediaCall && { userMediaCall }),
+			// Menu sections follow the order in which each type first appears here.
+			...(isMember && openModerationConsole && { openModerationConsole }),
+			...(isMember && muteUser && { muteUser }),
 			...(!isMember && addUser && { addUser }),
 			...(isMember && changeOwner && { changeOwner }),
 			...(isMember && changeLeader && { changeLeader }),
 			...(isMember && changeModerator && { changeModerator }),
-			...(isMember && openModerationConsole && { openModerationConsole }),
 			...(isMember && ignoreUser && { ignoreUser }),
-			...(isMember && muteUser && { muteUser }),
 			...(blockUser && { toggleBlock: blockUser }),
 			...((isMember || isInvited) && removeUser && { removeUser }),
+			...((isMember || isInvited) && banUser && { banUser }),
 			...(reportUserOption && { reportUser: reportUserOption }),
 		}),
 		[
@@ -114,6 +123,7 @@ export const useUserInfoActions = ({
 			reportUserOption,
 			openModerationConsole,
 			addUser,
+			banUser,
 			isMember,
 			isInvited,
 		],
@@ -140,7 +150,7 @@ export const useUserInfoActions = ({
 				return acc;
 			}
 
-			const newSection = { id: group, title: '', items: [newItem] };
+			const newSection = { id: group, title: group === 'privileges' ? 'Manage_room_roles' : '', items: [newItem] };
 			acc.push(newSection);
 
 			return acc;

@@ -1,5 +1,5 @@
-import moment from 'moment';
+import { formatFromNow } from '@rocket.chat/ui-client';
 import { useCallback } from 'react';
 
 export const useTimeFromNow = (withSuffix: boolean) =>
-	useCallback((date?: Date | string) => moment(date).fromNow(!withSuffix), [withSuffix]);
+	useCallback((date?: Date | string) => formatFromNow(date ?? new Date(), withSuffix), [withSuffix]);

@@ -8,7 +8,7 @@ import DateTimePicker from './DateTimePicker';
 
 type ScheduleMessageModalProps = {
 	onClose: () => void;
-	onSchedule: (scheduledAt: Date) => void;
+	onSchedule: (scheduledAt: Date) => void | Promise<void>;
 	message: string;
 };
 
@@ -22,9 +22,8 @@ const ScheduleMessageModal = ({ onClose, onSchedule, message }: ScheduleMessageM
 		if (isDateInvalid) {
 			return;
 		}
-		onSchedule(customDate);
-		onClose();
-	}, [customDate, onSchedule, onClose, isDateInvalid]);
+		void onSchedule(customDate);
+	}, [customDate, onSchedule, isDateInvalid]);
 
 	return (
 		<GenericModal

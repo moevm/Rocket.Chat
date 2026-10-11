@@ -3,7 +3,7 @@ import type { IMessage } from './IMessage';
 import type { IUser } from './IUser';
 import type { RoomID } from './IRoom';
 
-export type ScheduledMessageStatus = 'pending' | 'sent' | 'cancelled' | 'failed';
+export type ScheduledMessageStatus = 'pending' | 'processing' | 'sent' | 'cancelled' | 'failed';
 
 export interface IScheduledMessage extends IRocketChatRecord {
 	rid: RoomID;

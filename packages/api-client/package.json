@@ -1,6 +1,11 @@
 {
 	"name": "@rocket.chat/api-client",
-	"version": "0.2.49",
+	"version": "0.2.57-rc.0",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/RocketChat/Rocket.Chat.git",
+		"directory": "packages/api-client"
+	},
 	"main": "./dist/index.js",
 	"typings": "./dist/index.d.ts",
 	"files": [
@@ -9,8 +14,8 @@
 	"scripts": {
 		"build": "tsc",
 		"dev": "tsc --watch --preserveWatchOutput",
-		"lint": "eslint --ext .js,.jsx,.ts,.tsx .",
-		"lint:fix": "eslint --ext .js,.jsx,.ts,.tsx . --fix",
+		"lint": "eslint .",
+		"lint:fix": "eslint --fix .",
 		"test": "jest",
 		"testunit": "jest"
 	},
@@ -25,11 +30,10 @@
 	"devDependencies": {
 		"@rocket.chat/jest-presets": "workspace:~",
 		"@rocket.chat/tsconfig": "workspace:*",
-		"@types/jest": "~30.0.0",
 		"@types/strict-uri-encode": "^2.0.2",
-		"eslint": "~8.45.0",
-		"jest": "~30.2.0",
-		"jest-fetch-mock": "~3.0.3",
+		"eslint": "~10.12.0",
+		"jest": "~30.5.2",
+		"jest-fetch-mock": "~4.2.0",
 		"typescript": "~5.9.3"
 	},
 	"volta": {

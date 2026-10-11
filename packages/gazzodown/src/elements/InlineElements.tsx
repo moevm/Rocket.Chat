@@ -1,5 +1,4 @@
 import type * as MessageParser from '@rocket.chat/message-parser';
-import type { ReactElement } from 'react';
 import { lazy } from 'react';
 
 import BoldSpan from './BoldSpan';
@@ -7,6 +6,7 @@ import ImageElement from './ImageElement';
 import ItalicSpan from './ItalicSpan';
 import LinkSpan from './LinkSpan';
 import PlainSpan from './PlainSpan';
+import SpoilerSpan from './SpoilerSpan';
 import StrikeSpan from './StrikeSpan';
 import Timestamp from './Timestamp';
 import CodeElement from '../code/CodeElement';
@@ -18,11 +18,11 @@ import UserMentionElement from '../mentions/UserMentionElement';
 
 const KatexElement = lazy(() => import('../katex/KatexElement'));
 
-type InlineElementsProps = {
+export type InlineElementsProps = {
 	children: (MessageParser.Inlines | { fallback: MessageParser.Plain; type: undefined })[];
 };
 
-const InlineElements = ({ children }: InlineElementsProps): ReactElement => (
+const InlineElements = ({ children }: InlineElementsProps) => (
 	<>
 		{children.map((child, index) => {
 			switch (child.type) {
@@ -34,6 +34,9 @@ const InlineElements = ({ children }: InlineElementsProps): ReactElement => (
 
 				case 'ITALIC':
 					return <ItalicSpan key={index}>{child.value}</ItalicSpan>;
+
+				case 'SPOILER':
+					return <SpoilerSpan key={index}>{child.value}</SpoilerSpan>;
 
 				case 'LINK':
 					return (

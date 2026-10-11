@@ -1,4 +1,4 @@
-import { type ILivechatVisitor, UserStatus } from '@rocket.chat/core-typings';
+import { type ILivechatVisitor, type IVisitorExternalIdentifier, UserStatus } from '@rocket.chat/core-typings';
 import { Logger } from '@rocket.chat/logger';
 import { LivechatContacts, LivechatDepartment, LivechatVisitors, Users } from '@rocket.chat/models';
 import { makeFunction } from '@rocket.chat/patch-injection';
@@ -11,12 +11,13 @@ type RegisterGuestType = Partial<Pick<ILivechatVisitor, 'token' | 'name' | 'depa
 	connectionData?: any;
 	email?: string;
 	phone?: { number: string };
+	externalIds?: IVisitorExternalIdentifier[];
 };
 
 export const registerGuest = makeFunction(
 	async (
-		{ id, token, name, phone, email, department, username, connectionData, status = UserStatus.ONLINE }: RegisterGuestType,
-		{ shouldConsiderIdleAgent }: { shouldConsiderIdleAgent: boolean },
+		{ id, token, name, phone, email, department, username, connectionData, status = UserStatus.ONLINE, externalIds }: RegisterGuestType,
+		{ shouldConsiderIdleAgent, shouldConsiderOfflineAgent }: { shouldConsiderIdleAgent: boolean; shouldConsiderOfflineAgent: boolean },
 	): Promise<ILivechatVisitor | null> => {
 		if (!token) {
 			throw Error('error-invalid-token');
@@ -29,6 +30,7 @@ export const registerGuest = makeFunction(
 			status,
 			...(phone?.number && { phone: [{ phoneNumber: phone.number }] }),
 			...(name && { name }),
+			...(externalIds?.length && { externalIds }),
 		};
 
 		if (email) {
@@ -38,7 +40,7 @@ export const registerGuest = makeFunction(
 
 			const contact = await LivechatContacts.findContactByEmailAndContactManager(visitorEmail);
 			if (contact?.contactManager) {
-				const agent = await Users.findOneOnlineAgentById(contact.contactManager, shouldConsiderIdleAgent, {
+				const agent = await Users.findOneOnlineAgentById(contact.contactManager, shouldConsiderIdleAgent, shouldConsiderOfflineAgent, {
 					projection: { _id: 1, username: 1, name: 1, emails: 1 },
 				});
 				if (agent?.username && agent.name && agent.emails) {
@@ -53,7 +55,7 @@ export const registerGuest = makeFunction(
 			}
 		}
 
-		const livechatVisitor = await LivechatVisitors.getVisitorByToken(token, { projection: { _id: 1 } });
+		const livechatVisitor = await LivechatVisitors.getVisitorByToken(token, { projection: { _id: 1, department: 1, token: 1 } });
 
 		if (department && livechatVisitor?.department !== department) {
 			logger.debug({ msg: 'Attempt to find a department with id/name', department });

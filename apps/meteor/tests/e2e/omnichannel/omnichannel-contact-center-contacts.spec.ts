@@ -3,6 +3,7 @@ import { randomBytes } from 'crypto';
 import { faker } from '@faker-js/faker';
 
 import { Users } from '../fixtures/userStates';
+import { HomeOmnichannel } from '../page-objects';
 import { Navbar } from '../page-objects/fragments';
 import { OmnichannelContactCenterContacts } from '../page-objects/omnichannel';
 import { test, expect } from '../utils/test';
@@ -103,7 +104,7 @@ test.describe('OC - Contact Center - Contacts', () => {
 	});
 
 	test.beforeEach(async ({ page }) => {
-		await page.goto('/');
+		await new HomeOmnichannel(page).goto();
 		await poNavbar.btnContactCenter.click();
 		await poContacts.tabContacts.click();
 		await page.waitForURL(URL.contactCenter);
@@ -132,7 +133,7 @@ test.describe('OC - Contact Center - Contacts', () => {
 		await test.step('validate email format', async () => {
 			await poContacts.editContact.btnAddEmail.click();
 			await poContacts.editContact.inputEmail.fill('invalidemail');
-			await page.keyboard.press('Tab');
+			await page.keyboard.press('Enter');
 			await expect(poContacts.editContact.getErrorMessage(ERROR.invalidEmail)).toBeVisible();
 		});
 
@@ -207,7 +208,7 @@ test.describe('OC - Contact Center - Contacts', () => {
 
 		await test.step('validate email format', async () => {
 			await poContacts.editContact.inputEmail.fill('invalidemail');
-			await page.keyboard.press('Tab');
+			await page.keyboard.press('Enter');
 			await expect(poContacts.editContact.getErrorMessage(ERROR.invalidEmail)).toBeVisible();
 		});
 

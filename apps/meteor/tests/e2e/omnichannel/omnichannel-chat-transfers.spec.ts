@@ -4,6 +4,7 @@ import { IS_EE } from '../config/constants';
 import { createAuxContext } from '../fixtures/createAuxContext';
 import { Users } from '../fixtures/userStates';
 import { HomeOmnichannel } from '../page-objects';
+import { setSettingValueById } from '../utils';
 import { createAgent, makeAgentAvailable } from '../utils/omnichannel/agents';
 import { addAgentToDepartment, createDepartment } from '../utils/omnichannel/departments';
 import { createManager } from '../utils/omnichannel/managers';
@@ -24,7 +25,7 @@ test.describe('OC - Chat transfers [Monitor role]', () => {
 	let agents: Awaited<ReturnType<typeof createAgent>>[];
 	let monitors: Awaited<ReturnType<typeof createMonitor>>[];
 	let units: Awaited<ReturnType<typeof createOrUpdateUnit>>[];
-	let sessions: { page: Page; poHomeOmnichannel: HomeOmnichannel }[];
+	let sessions: { page: Page; poHomeOmnichannel: HomeOmnichannel }[] = [];
 
 	let poOmnichannel: HomeOmnichannel;
 
@@ -94,29 +95,30 @@ test.describe('OC - Chat transfers [Monitor role]', () => {
 				departments: [{ departmentId: departmentB._id }],
 			}),
 		]);
+		expect((await setSettingValueById(api, 'Omnichannel_enable_department_removal', true)).status()).toBe(200);
 	});
 
 	// Create sessions
 	test.beforeEach(async ({ browser }) => {
-		sessions = await Promise.all([
-			createAuxContext(browser, Users.user1).then(wrapSession),
-			createAuxContext(browser, Users.user2).then(wrapSession),
-			createAuxContext(browser, Users.admin).then(wrapSession),
-		]);
+		sessions = [];
+		for (const user of [Users.user1, Users.user2, Users.admin]) {
+			sessions.push(await createAuxContext(browser, user).then(wrapSession));
+		}
 	});
 
 	test.beforeEach(async ({ page }) => {
 		poOmnichannel = new HomeOmnichannel(page);
 
-		await page.goto('/omnichannel/current');
+		await poOmnichannel.chats.goto();
 	});
 
 	// Close sessions
 	test.afterEach(async () => {
 		await Promise.all(sessions.map(({ page }) => page.close()));
+		sessions = [];
 	});
 
-	test.afterAll(async () => {
+	test.afterAll(async ({ api }) => {
 		await Promise.all([
 			...conversations.map((conversation) => conversation.delete()),
 			...monitors.map((monitor) => monitor.delete()),
@@ -124,6 +126,7 @@ test.describe('OC - Chat transfers [Monitor role]', () => {
 			...units.map((unit) => unit.delete()),
 			...departments.map((department) => department.delete()),
 		]);
+		await setSettingValueById(api, 'Omnichannel_enable_department_removal', false);
 	});
 
 	test(`OC - Chat transfers [Monitor role] - Transfer to department with no online agents should fail`, async ({ api }) => {
@@ -177,6 +180,7 @@ test.describe('OC - Chat transfers [Monitor role]', () => {
 			await poOmnichannel.content.forwardChatModal.inputComment.type('any_comment');
 			await expect(poOmnichannel.content.forwardChatModal.btnForward).toBeEnabled();
 			await poOmnichannel.content.forwardChatModal.btnForward.click();
+			await poOmnichannel.content.forwardChatModal.waitForDismissal();
 			// await expect(agentA.poHomeOmnichannel.toastSuccess).toBeVisible();
 		});
 
@@ -232,7 +236,7 @@ test.describe('OC - Chat transfers [Monitor role]', () => {
 			await agentB.poHomeOmnichannel.sidebar.getSidebarItemByName(roomB.fname).click();
 			await expect(
 				agentB.poHomeOmnichannel.content.findSystemMessage(
-					`New Chat Transfer: user3 transferred the chat to user2 with a comment: any_comment`,
+					`New chat transfer: user3 transferred the chat to user2 with a comment: any_comment`,
 				),
 			).toBeVisible();
 			await expect(agentB.poHomeOmnichannel.content.findSystemMessage('left the channel')).toBeVisible();
@@ -276,7 +280,7 @@ test.describe('OC - Chat transfers [Monitor role]', () => {
 			await agentC.poHomeOmnichannel.sidebar.getSidebarItemByName(roomC.fname).click();
 			await expect(
 				agentC.poHomeOmnichannel.content.findSystemMessage(
-					`New Chat Transfer: user3 transferred the chat to RocketChat Internal Admin Test with a comment: any_comment`,
+					`New chat transfer: user3 transferred the chat to RocketChat Internal Admin Test with a comment: any_comment`,
 				),
 			).toBeVisible();
 			await expect(agentC.poHomeOmnichannel.content.findSystemMessage('left the channel')).toBeVisible();
@@ -357,7 +361,7 @@ test.describe('OC - Chat transfers [Manager role]', () => {
 	test.beforeEach(async ({ page }) => {
 		poOmnichannel = new HomeOmnichannel(page);
 
-		await page.goto('/omnichannel/current');
+		await poOmnichannel.chats.goto();
 	});
 
 	// Close sessions
@@ -399,6 +403,7 @@ test.describe('OC - Chat transfers [Manager role]', () => {
 			await poOmnichannel.content.forwardChatModal.inputComment.type('any_comment');
 			await expect(poOmnichannel.content.forwardChatModal.btnForward).toBeEnabled();
 			await poOmnichannel.content.forwardChatModal.btnForward.click();
+			await poOmnichannel.content.forwardChatModal.waitForDismissal();
 			// await expect(agentA.poHomeOmnichannel.toastSuccess).toBeVisible();
 		});
 
@@ -454,7 +459,7 @@ test.describe('OC - Chat transfers [Manager role]', () => {
 			await agentB.poHomeOmnichannel.sidebar.getSidebarItemByName(roomB.fname).click();
 			await expect(
 				agentB.poHomeOmnichannel.content.findSystemMessage(
-					`New Chat Transfer: user3 transferred the chat to user2 with a comment: any_comment`,
+					`New chat transfer: user3 transferred the chat to user2 with a comment: any_comment`,
 				),
 			).toBeVisible();
 			await expect(agentB.poHomeOmnichannel.content.findSystemMessage('left the channel')).toBeVisible();
@@ -498,7 +503,7 @@ test.describe('OC - Chat transfers [Manager role]', () => {
 			await agentC.poHomeOmnichannel.sidebar.getSidebarItemByName(roomC.fname).click();
 			await expect(
 				agentC.poHomeOmnichannel.content.findSystemMessage(
-					`New Chat Transfer: user3 transferred the chat to RocketChat Internal Admin Test with a comment: any_comment`,
+					`New chat transfer: user3 transferred the chat to RocketChat Internal Admin Test with a comment: any_comment`,
 				),
 			).toBeVisible();
 			await expect(agentC.poHomeOmnichannel.content.findSystemMessage('left the channel')).toBeVisible();

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 import type { Updater, SetProps, UnsetProps, IncProps, AddToSetProps } from '@rocket.chat/model-typings';
 import type { UpdateFilter } from 'mongodb';
 
@@ -17,9 +16,9 @@ export class UpdaterImpl<T extends { _id: string }> implements Updater<T> {
 
 	private dirty = false;
 
-	set<P extends SetProps<T>, K extends keyof P>(key: K, value: P[K]) {
+	set<K extends keyof SetProps<T>>(key: K, value: SetProps<T>[K]) {
 		this._set = this._set ?? new Map<Keys<T>, any>();
-		this._set.set(key as Keys<T>, value);
+		this._set.set(key, value);
 		return this;
 	}
 
@@ -43,6 +42,14 @@ export class UpdaterImpl<T extends { _id: string }> implements Updater<T> {
 		const prev = this._addToSet.get(key) ?? [];
 		this._addToSet.set(key, [...prev, value]);
 		return this;
+	}
+
+	getSet<K extends keyof SetProps<T>>(key: K): SetProps<T>[K] | undefined {
+		return this._set?.get(key) as SetProps<T>[K] | undefined;
+	}
+
+	getInc<K extends keyof IncProps<T>>(key: K): number | undefined {
+		return this._inc?.get(key);
 	}
 
 	hasChanges() {
@@ -76,4 +83,4 @@ export class UpdaterImpl<T extends { _id: string }> implements Updater<T> {
 	}
 }
 
-export { Updater };
+export type { Updater };

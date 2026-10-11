@@ -5,19 +5,10 @@ import type {
 	MediaCallSignedContact,
 	MediaCallContact,
 	IUser,
+	MediaCallActor,
 } from '@rocket.chat/core-typings';
-import type { IMediaCallsModel } from '@rocket.chat/model-typings';
-import type {
-	IndexDescription,
-	Collection,
-	Db,
-	UpdateFilter,
-	UpdateOptions,
-	UpdateResult,
-	FindOptions,
-	Document,
-	FindCursor,
-} from 'mongodb';
+import type { IMediaCallsModel, DocumentWithProjection, FindOptionsWithProjection } from '@rocket.chat/model-typings';
+import type { IndexDescription, Collection, Db, UpdateFilter, UpdateOptions, UpdateResult, Document, FindCursor } from 'mongodb';
 
 import { BaseRaw } from './BaseRaw';
 
@@ -37,12 +28,31 @@ export class MediaCallsRaw extends BaseRaw<IMediaCall> implements IMediaCallsMod
 		];
 	}
 
-	public async findOneByCallerRequestedId<T extends Document = IMediaCall>(
+	public async findOneByIdAndCallee<T extends Document = IMediaCall, O extends FindOptionsWithProjection<T> = FindOptionsWithProjection<T>>(
+		id: IMediaCall['_id'],
+		callee: MediaCallActor,
+		options?: O,
+	): Promise<DocumentWithProjection<T, O> | null> {
+		return this.findOne<T, O>(
+			{
+				'_id': id,
+				'callee.type': callee.type,
+				'callee.id': callee.id,
+				...(callee.contractId && { 'callee.contractId': callee.contractId }),
+			},
+			options,
+		);
+	}
+
+	public async findOneByCallerRequestedId<
+		T extends Document = IMediaCall,
+		O extends FindOptionsWithProjection<T> = FindOptionsWithProjection<T>,
+	>(
 		id: Required<IMediaCall>['callerRequestedId'],
 		caller: { type: MediaCallActorType; id: string },
-		options?: FindOptions<T>,
-	): Promise<T | null> {
-		return this.findOne(
+		options?: O,
+	): Promise<DocumentWithProjection<T, O> | null> {
+		return this.findOne<T, O>(
 			{
 				'caller.type': caller.type,
 				'caller.id': caller.id,
@@ -72,12 +82,11 @@ export class MediaCallsRaw extends BaseRaw<IMediaCall> implements IMediaCallsMod
 
 	public async acceptCallById(
 		callId: string,
-		data: { calleeContractId: string; supportedFeatures: string[] },
+		data: { calleeContractId: string; supportedFeatures: string[]; sipCallId?: string },
 		expiresAt: Date,
-	): Promise<UpdateResult> {
-		const { calleeContractId } = data;
-
-		return this.updateOne(
+	): Promise<IMediaCall | null> {
+		const { calleeContractId, sipCallId } = data;
+		return this.findOneAndUpdate(
 			{
 				_id: callId,
 				state: { $in: ['none', 'ringing'] },
@@ -88,6 +97,7 @@ export class MediaCallsRaw extends BaseRaw<IMediaCall> implements IMediaCallsMod
 					'callee.contractId': calleeContractId,
 					'acceptedAt': new Date(),
 					expiresAt,
+					...(sipCallId && { sipCallId }),
 				},
 				$pull: {
 					features: {
@@ -95,11 +105,12 @@ export class MediaCallsRaw extends BaseRaw<IMediaCall> implements IMediaCallsMod
 					},
 				},
 			},
+			{ returnDocument: 'after' },
 		);
 	}
 
-	public async activateCallById(callId: string, expiresAt: Date): Promise<UpdateResult> {
-		return this.updateOne(
+	public async activateCallById(callId: string, expiresAt: Date): Promise<IMediaCall | null> {
+		return this.findOneAndUpdate(
 			{
 				_id: callId,
 				state: 'accepted',
@@ -111,13 +122,14 @@ export class MediaCallsRaw extends BaseRaw<IMediaCall> implements IMediaCallsMod
 					expiresAt,
 				},
 			},
+			{ returnDocument: 'after' },
 		);
 	}
 
-	public async hangupCallById(callId: string, params?: { endedBy?: IMediaCall['endedBy']; reason?: string }): Promise<UpdateResult> {
+	public async hangupCallById(callId: string, params?: { endedBy?: IMediaCall['endedBy']; reason?: string }): Promise<IMediaCall | null> {
 		const { endedBy, reason } = params || {};
 
-		return this.updateOne(
+		return this.findOneAndUpdate(
 			{
 				_id: callId,
 				ended: false,
@@ -131,6 +143,7 @@ export class MediaCallsRaw extends BaseRaw<IMediaCall> implements IMediaCallsMod
 					...(reason && { hangupReason: reason }),
 				},
 			},
+			{ returnDocument: 'after' },
 		);
 	}
 
@@ -167,8 +180,10 @@ export class MediaCallsRaw extends BaseRaw<IMediaCall> implements IMediaCallsMod
 		);
 	}
 
-	public findAllExpiredCalls<T extends Document = IMediaCall>(options?: FindOptions<T>): FindCursor<T> {
-		return this.find(
+	public findAllExpiredCalls<T extends Document = IMediaCall, O extends FindOptionsWithProjection<T> = FindOptionsWithProjection<T>>(
+		options?: O,
+	): FindCursor<DocumentWithProjection<T, O>> {
+		return this.find<T, O>(
 			{
 				ended: false,
 				expiresAt: {
@@ -179,8 +194,11 @@ export class MediaCallsRaw extends BaseRaw<IMediaCall> implements IMediaCallsMod
 		);
 	}
 
-	public findAllNotOverByUid<T extends Document = IMediaCall>(uid: IUser['_id'], options?: FindOptions<T>): FindCursor<T> {
-		return this.find(
+	public findAllNotOverByUid<T extends Document = IMediaCall, O extends FindOptionsWithProjection<T> = FindOptionsWithProjection<T>>(
+		uid: IUser['_id'],
+		options?: O,
+	): FindCursor<DocumentWithProjection<T, O>> {
+		return this.find<T, O>(
 			{
 				ended: false,
 				expiresAt: {

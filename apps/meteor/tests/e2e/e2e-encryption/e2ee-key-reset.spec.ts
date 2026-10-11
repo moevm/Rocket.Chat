@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import { createAuxContext } from '../fixtures/createAuxContext';
 import injectInitialData from '../fixtures/inject-initial-data';
 import { Users } from '../fixtures/userStates';
-import { AccountSecurity } from '../page-objects';
+import { AccountSecurity, HomeChannel } from '../page-objects';
 import { preserveSettings } from '../utils/preserveSettings';
 import { test, expect } from '../utils/test';
 
@@ -31,7 +31,8 @@ test.describe('E2EE Key Reset', () => {
 
 	test.beforeEach(async ({ browser, page }) => {
 		anotherClientPage = (await createAuxContext(browser, Users.userE2EE)).page;
-		await page.goto('/home');
+		const poHomeChannel = new HomeChannel(page);
+		await poHomeChannel.goto();
 	});
 
 	test.afterEach(async () => {
@@ -42,8 +43,7 @@ test.describe('E2EE Key Reset', () => {
 	test('expect force logout on e2e keys reset', async ({ page }) => {
 		const poAccountSecurity = new AccountSecurity(page);
 
-		await page.goto('/account/security');
-
+		await poAccountSecurity.goto();
 		await poAccountSecurity.securityE2EEncryptionSection.click();
 		await poAccountSecurity.securityE2EEncryptionResetKeyButton.click();
 

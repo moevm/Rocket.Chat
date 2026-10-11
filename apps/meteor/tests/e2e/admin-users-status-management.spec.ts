@@ -2,7 +2,7 @@ import type { BrowserContext, Page } from '@playwright/test';
 
 import { DEFAULT_USER_CREDENTIALS } from './config/constants';
 import { Users } from './fixtures/userStates';
-import { AdminUsers, Registration, Authenticated } from './page-objects';
+import { AdminUsers, Authenticated, Login } from './page-objects';
 import { test, expect } from './utils/test';
 import type { ITestUser } from './utils/user-helpers';
 import { createTestUser } from './utils/user-helpers';
@@ -21,13 +21,13 @@ test.describe.serial('Admin > Users', () => {
 	test.describe('Login', () => {
 		let context: BrowserContext;
 		let page: Page;
-		let poRegistration: Registration;
+		let poLogin: Login;
 		let poAuth: Authenticated;
 
 		test.beforeAll(async ({ browser }) => {
 			context = await browser.newContext();
 			page = await context.newPage();
-			poRegistration = new Registration(page);
+			poLogin = new Login(page);
 			poAuth = new Authenticated(page);
 		});
 
@@ -36,11 +36,9 @@ test.describe.serial('Admin > Users', () => {
 		});
 
 		test('Login as a newly created user and verify its status is active', async () => {
-			await page.goto('/login');
+			await poLogin.goto('/login');
 			await test.step('should log in as the newly created user', async () => {
-				await poRegistration.username.fill(user.data.username);
-				await poRegistration.inputPassword.fill(DEFAULT_USER_CREDENTIALS.password);
-				await poRegistration.btnLogin.click();
+				await poLogin.login(user.data.username, DEFAULT_USER_CREDENTIALS.password);
 			});
 
 			await test.step('Assert user is logged in', async () => {
@@ -54,7 +52,7 @@ test.describe.serial('Admin > Users', () => {
 
 		test.beforeEach('Go to /admin/users', async ({ page }) => {
 			adminUsers = new AdminUsers(page);
-			await page.goto('/admin/users');
+			await adminUsers.goto();
 		});
 
 		test('After the first login, the user gets listed under the Active tab', async () => {

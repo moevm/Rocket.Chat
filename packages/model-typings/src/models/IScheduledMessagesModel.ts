@@ -6,6 +6,8 @@ import type { FindPaginated, IBaseModel } from './IBaseModel';
 export interface IScheduledMessagesModel extends IBaseModel<IScheduledMessage> {
 	findReadyToSend(now: Date, options?: FindOptions<IScheduledMessage>): FindCursor<IScheduledMessage>;
 
+	claimNextReadyToSend(now: Date): Promise<IScheduledMessage | null>;
+
 	findByRoomId(rid: RoomID, options?: FindOptions<IScheduledMessage>): FindPaginated<FindCursor<IScheduledMessage>>;
 
 	findByUserId(userId: IUser['_id'], options?: FindOptions<IScheduledMessage>): FindPaginated<FindCursor<IScheduledMessage>>;
@@ -27,7 +29,7 @@ export interface IScheduledMessagesModel extends IBaseModel<IScheduledMessage> {
 
 	updateScheduledAt(messageId: IScheduledMessage['_id'], scheduledAt: Date): Promise<UpdateResult>;
 
-	cancelMessage(messageId: IScheduledMessage['_id'], userId: IUser['_id']): Promise<UpdateResult>;
+	cancelMessage(messageId: IScheduledMessage['_id'], userId?: IUser['_id']): Promise<UpdateResult>;
 
 	deleteOldMessages(olderThan: Date): Promise<DeleteResult>;
 

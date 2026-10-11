@@ -18,8 +18,7 @@ test.describe.serial('files-management', () => {
 	test.beforeEach(async ({ page }) => {
 		poHomeChannel = new HomeChannel(page);
 
-		await page.goto('/home');
-		await poHomeChannel.navbar.openChat(targetChannel);
+		await poHomeChannel.gotoChannel(targetChannel);
 	});
 
 	test.afterAll(async ({ api }) => {
@@ -28,8 +27,8 @@ test.describe.serial('files-management', () => {
 
 	test('should send a file and manage it in the list', async () => {
 		await poHomeChannel.content.dragAndDropTxtFile();
-		await poHomeChannel.content.btnModalConfirm.click();
-		await expect(poHomeChannel.content.lastMessageFileName).toHaveText(TEST_FILE_TXT);
+		await poHomeChannel.composer.btnSend.click();
+		await expect(poHomeChannel.content.getLastMessageByFileName(TEST_FILE_TXT)).toBeVisible();
 
 		await poHomeChannel.roomToolbar.openMoreOptions();
 		await poHomeChannel.roomToolbar.menuItemFiles.click();
@@ -49,7 +48,7 @@ test.describe.serial('files-management', () => {
 			await poHomeChannel.tabs.files.deleteFile(TEST_FILE_TXT);
 
 			await expect(poHomeChannel.tabs.files.getFileByName(TEST_FILE_TXT)).toHaveCount(0);
-			await expect(poHomeChannel.content.lastUserMessage).not.toBeVisible();
+			await expect(poHomeChannel.content.getLastMessageByFileName(TEST_FILE_TXT)).not.toBeVisible();
 		});
 	});
 });

@@ -22,10 +22,11 @@ import type {
 import type { Updater } from '@rocket.chat/models';
 import type { FilterOperators } from 'mongodb';
 
+import type { ILoginAttempt } from './auth/ILoginAttempt';
 import { Callbacks } from './callbacks/callbacksBase';
-import type { ILoginAttempt } from '../../app/authentication/server/ILoginAttempt';
-import type { IBusinessHourBehavior } from '../../app/livechat/server/business-hour/AbstractBusinessHour';
-import type { CloseRoomParams } from '../../app/livechat/server/lib/localTypes';
+import type { SendMessageOptions } from './messages/sendMessage';
+import type { IBusinessHourBehavior } from './omnichannel/business-hour/AbstractBusinessHour';
+import type { CloseRoomParams } from './omnichannel/localTypes';
 
 /**
  * Callbacks returning void, like event listeners.
@@ -46,7 +47,10 @@ interface EventLikeCallbackSignatures {
 	'afterDeleteUser': (user: IUser) => void;
 	'afterFileUpload': (params: { user: IUser; room: IRoom; message: IMessage }) => void;
 	'afterRoomNameChange': (params: { room: IRoom; name: string; oldName: string; user: IUser }) => void;
-	'afterSaveMessage': (message: IMessage, params: { room: IRoom; user: IUser; roomUpdater?: Updater<IRoom> }) => void;
+	'afterSaveMessage': (
+		message: IMessage,
+		params: { room: IRoom; user: IUser; roomUpdater?: Updater<IRoom>; options?: SendMessageOptions },
+	) => void;
 	'afterOmnichannelSaveMessage': (message: IMessage, constant: { room: IOmnichannelRoom; roomUpdater: Updater<IOmnichannelRoom> }) => void;
 	'livechat.removeAgentDepartment': (params: { departmentId: ILivechatDepartmentRecord['_id']; agentsId: ILivechatAgent['_id'][] }) => void;
 	'livechat.saveAgentDepartment': (params: { departmentId: ILivechatDepartmentRecord['_id']; agentsId: ILivechatAgent['_id'][] }) => void;
@@ -93,6 +97,7 @@ interface EventLikeCallbackSignatures {
 	'livechat.afterDepartmentDisabled': (department: ILivechatDepartmentRecord) => void;
 	'livechat.afterDepartmentArchived': (department: Pick<ILivechatDepartmentRecord, '_id' | 'businessHourId'>) => void;
 	'beforeSaveUser': ({ user, oldUser }: { user: IUser; oldUser?: IUser }) => void;
+	'afterCreateUser': (user: AtLeast<IUser, '_id' | 'username' | 'roles'>) => void;
 	'afterSaveUser': ({ user, oldUser }: { user: IUser; oldUser?: IUser | null }) => void;
 	'livechat.afterTagRemoved': (tag: ILivechatTagRecord) => void;
 	'afterUserImport': (data: { inserted: IUser['_id'][]; updated: IUser['_id']; skipped: number; failed: number }) => void;
@@ -112,7 +117,6 @@ type ChainedCallbackSignatures = {
 		newRoom: IOmnichannelRoom,
 		props: { user: Required<Pick<IUser, '_id' | 'username' | 'name'>>; oldRoom: IOmnichannelRoom },
 	) => IOmnichannelRoom;
-	'afterCreateUser': (user: AtLeast<IUser, '_id' | 'username' | 'roles'>) => IUser;
 	'afterDeleteRoom': (rid: IRoom['_id']) => IRoom['_id'];
 	'livechat:afterOnHold': (room: Pick<IOmnichannelRoom, '_id'>) => Pick<IOmnichannelRoom, '_id'>;
 	'livechat:afterOnHoldChatResumed': (room: Pick<IOmnichannelRoom, '_id'>) => Pick<IOmnichannelRoom, '_id'>;

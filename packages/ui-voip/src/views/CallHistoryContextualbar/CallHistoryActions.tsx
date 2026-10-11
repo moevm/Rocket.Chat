@@ -3,8 +3,8 @@ import { ContextualbarActions, ContextualbarClose, GenericMenu } from '@rocket.c
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 
-import type { MediaCallState } from '../../context';
-import { isCallingBlocked, useMediaCallExternalContext } from '../../context/MediaCallContext';
+import type { PeekMediaSessionStateReturn } from '../../context/usePeekMediaSessionState';
+import { usePeekMediaSessionState } from '../../context/usePeekMediaSessionState';
 
 type HistoryActions = 'voiceCall' | 'videoCall' | 'jumpToMessage' | 'directMessage' | 'userInfo';
 
@@ -12,7 +12,7 @@ export type HistoryActionCallbacks = {
 	[K in HistoryActions]?: () => void;
 };
 
-type CallHistoryActionsProps = {
+export type CallHistoryActionsProps = {
 	onClose: () => void;
 	actions: HistoryActionCallbacks;
 };
@@ -33,11 +33,12 @@ const i18nDictionary: Record<HistoryActions, string> = {
 	userInfo: 'User_info',
 } as const;
 
-const getItems = (actions: HistoryActionCallbacks, t: TFunction, state: MediaCallState) => {
+/** The options menu of a call history entry; a voice call is offered only while no call is under way. */
+export const getCallHistoryMenuItems = (actions: HistoryActionCallbacks, t: TFunction, state: PeekMediaSessionStateReturn) => {
 	return (Object.entries(actions) as [HistoryActions, () => void][])
 		.filter(([_, callback]) => callback)
 		.map(([action, callback]) => {
-			const disabled = action === 'voiceCall' && isCallingBlocked(state);
+			const disabled = action === 'voiceCall' && state !== 'available';
 			return {
 				id: action,
 				icon: iconDictionary[action],
@@ -52,8 +53,8 @@ const getItems = (actions: HistoryActionCallbacks, t: TFunction, state: MediaCal
 const CallHistoryActions = ({ onClose, actions }: CallHistoryActionsProps) => {
 	const { t } = useTranslation();
 
-	const { state } = useMediaCallExternalContext();
-	const items = getItems(actions, t, state);
+	const state = usePeekMediaSessionState();
+	const items = getCallHistoryMenuItems(actions, t, state);
 	return (
 		<ContextualbarActions>
 			{items.length > 0 && <GenericMenu title={t('Options')} items={items} />}

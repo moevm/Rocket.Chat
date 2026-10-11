@@ -1,10 +1,18 @@
 import type { Locator, Page } from '@playwright/test';
 
-import { Account } from './account';
+import { Account, AccountSectionsHref } from './account';
+import { DeleteAccountModal } from './fragments';
 
 export class AccountProfile extends Account {
+	protected readonly route = AccountSectionsHref.profile;
+
+	protected readonly title = 'Profile';
+
+	readonly deleteAccountModal: DeleteAccountModal;
+
 	constructor(page: Page) {
 		super(page);
+		this.deleteAccountModal = new DeleteAccountModal(page);
 	}
 
 	get inputName(): Locator {
@@ -40,6 +48,19 @@ export class AccountProfile extends Account {
 		return this.page.locator('//label[contains(text(), "Email")]/..//input');
 	}
 
+	get inputStatusText(): Locator {
+		return this.page.getByRole('textbox', { name: 'Status' });
+	}
+
+	get selectClearStatusAfter(): Locator {
+		return this.page.getByLabel('Clear status after');
+	}
+
+	async chooseClearStatusAfter(option: string): Promise<void> {
+		await this.selectClearStatusAfter.click();
+		await this.page.getByRole('option', { name: new RegExp(option) }).click();
+	}
+
 	get preferencesSoundAccordionOption(): Locator {
 		return this.page.locator('h2:has-text("Sound")');
 	}
@@ -50,46 +71,6 @@ export class AccountProfile extends Account {
 
 	get btnClose(): Locator {
 		return this.page.locator('role=navigation >> role=button[name=Close]');
-	}
-
-	get inputToken(): Locator {
-		return this.page.locator('[data-qa="PersonalTokenField"]');
-	}
-
-	get tokensTableEmpty(): Locator {
-		return this.page.locator('//h3[contains(text(), "No results found")]');
-	}
-
-	get btnTokensAdd(): Locator {
-		return this.page.locator('role=button[name="Add"]');
-	}
-
-	get tokenAddedModal(): Locator {
-		return this.page.locator('role=dialog[name="Personal Access Token successfully generated"]');
-	}
-
-	get btnTokenAddedOk(): Locator {
-		return this.tokenAddedModal.locator('role=button[name="Ok"]');
-	}
-
-	get tokensRows(): Locator {
-		return this.page.locator('table tbody tr');
-	}
-
-	tokenInTable(name: string): Locator {
-		return this.page.locator(`tr[qa-token-name="${name}"]`);
-	}
-
-	get btnRegenerateTokenModal(): Locator {
-		return this.page.locator('role=button[name="Regenerate token"]');
-	}
-
-	get removeTokenModal(): Locator {
-		return this.page.locator('role=dialog', { hasText: 'personal access token' });
-	}
-
-	get btnRemoveTokenModal(): Locator {
-		return this.removeTokenModal.getByRole('button', { name: 'Remove' });
 	}
 
 	get inputImageFile(): Locator {
@@ -108,31 +89,19 @@ export class AccountProfile extends Account {
 		return this.page.getByRole('button', { name: 'Save changes', exact: true });
 	}
 
+	get profileHeading(): Locator {
+		return this.page.getByRole('heading', { name: 'Profile', exact: true });
+	}
+
 	get btnDeleteMyAccount(): Locator {
 		return this.page.getByRole('button', { name: 'Delete my account' });
 	}
 
-	get deleteAccountDialog(): Locator {
-		return this.page.getByRole('dialog', { name: 'Delete account?' });
+	private getErrorAlertByText(text: string): Locator {
+		return this.page.getByRole('alert').filter({ hasText: text });
 	}
 
-	get deleteAccountDialogMessageWithPassword(): Locator {
-		return this.deleteAccountDialog.getByText('Enter your password to delete your account. This cannot be undone.');
-	}
-
-	get inputDeleteAccountPassword(): Locator {
-		return this.deleteAccountDialog.getByRole('textbox', { name: 'Enter your password to delete your account. This cannot be undone.' });
-	}
-
-	get btnDeleteAccountConfirm(): Locator {
-		return this.deleteAccountDialog.getByRole('button', { name: 'Delete Account' });
-	}
-
-	get btnDeleteAccountCancel(): Locator {
-		return this.deleteAccountDialog.getByRole('button', { name: 'Cancel' });
-	}
-
-	get profileTitle(): Locator {
-		return this.page.getByRole('heading', { name: 'Profile' });
+	get errorInvalidUrl(): Locator {
+		return this.getErrorAlertByText('Invalid image URL');
 	}
 }

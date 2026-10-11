@@ -1,9 +1,9 @@
 import type { INpsVote } from '@rocket.chat/core-typings';
 import { serverFetch as fetch } from '@rocket.chat/server-fetch';
 
-import { getWorkspaceAccessToken } from '../../../app/cloud/server';
-import { settings } from '../../../app/settings/server';
+import { getWorkspaceAccessToken } from '../../lib/cloud';
 import { SystemLogger } from '../../lib/logger/system';
+import { settings } from '../../settings';
 
 type NPSResultPayload = {
 	total: number;
@@ -26,6 +26,8 @@ export const sendNpsResults = async function sendNpsResults(npsId: string, data:
 					Authorization: `Bearer ${token}`,
 				},
 				body: data,
+				// SECURITY: URL can only be configured by users with enough privileges. It's ok to disable this check here.
+				ignoreSsrfValidation: true,
 			})
 		).json();
 	} catch (err) {

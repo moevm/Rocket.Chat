@@ -3,13 +3,9 @@ import type { IRoom } from '@rocket.chat/core-typings';
 import ParentDiscussion from './ParentDiscussion';
 import ParentTeam from './ParentTeam';
 
-const ParentRoom = ({ room }: { room: IRoom }) => {
-	const parentRoomId = Boolean(room.prid || (room.teamId && !room.teamMain));
+export type ParentRoomProps = { room: IRoom };
 
-	if (!parentRoomId) {
-		return null;
-	}
-
+const ParentRoom = ({ room }: ParentRoomProps) => {
 	if (room.prid) {
 		return <ParentDiscussion room={room} />;
 	}
@@ -17,6 +13,8 @@ const ParentRoom = ({ room }: { room: IRoom }) => {
 	if (room.teamId && !room.teamMain) {
 		return <ParentTeam room={room} />;
 	}
+
+	return null;
 };
 
 export default ParentRoom;

@@ -1,6 +1,5 @@
-import { escapeRegExp } from '@rocket.chat/string-helpers';
+import { escapeRegExp, isAbsoluteURL } from '@rocket.chat/tools';
 
-import { isURL } from '../../../lib/utils/isURL';
 import { ltrim, rtrim, trim } from '../../../lib/utils/stringUtils';
 
 function getCloudUrl(
@@ -37,11 +36,11 @@ function getCloudUrl(
 
 export const _getURL = (
 	path: string,
-	// eslint-disable-next-line @typescript-eslint/naming-convention
+
 	{ cdn, full, cloud, cloud_route, cloud_params, _cdn_prefix, _root_url_path_prefix, _site_url }: Record<string, any>,
 	deeplinkUrl?: string,
 ): string => {
-	if (isURL(path)) {
+	if (isAbsoluteURL(path)) {
 		return path;
 	}
 
@@ -76,7 +75,7 @@ export const _getURL = (
 
 export const getURLWithoutSettings = (
 	path: string,
-	// eslint-disable-next-line @typescript-eslint/naming-convention
+
 	{
 		cdn = true,
 		full = false,
@@ -92,6 +91,7 @@ export const getURLWithoutSettings = (
 	},
 	cdnPrefix: string,
 	siteUrl: string,
+	rootUrlPathPrefix: string,
 	cloudDeepLinkUrl?: string,
 ): string =>
 	_getURL(
@@ -103,7 +103,7 @@ export const getURLWithoutSettings = (
 			cloud_route,
 			cloud_params,
 			_cdn_prefix: cdnPrefix,
-			_root_url_path_prefix: __meteor_runtime_config__.ROOT_URL_PATH_PREFIX,
+			_root_url_path_prefix: rootUrlPathPrefix,
 			_site_url: siteUrl,
 		},
 		cloudDeepLinkUrl,

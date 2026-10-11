@@ -1,8 +1,10 @@
 import { createFakeVisitor } from '../../mocks/data';
 import { IS_EE } from '../config/constants';
 import { Users } from '../fixtures/userStates';
+import { HomeOmnichannel } from '../page-objects';
 import { Navbar } from '../page-objects/fragments';
 import { OmnichannelContactCenterChats } from '../page-objects/omnichannel';
+import { setSettingValueById } from '../utils';
 import { createAgent, makeAgentAvailable } from '../utils/omnichannel/agents';
 import { addAgentToDepartment, createDepartment } from '../utils/omnichannel/departments';
 import { createConversation, updateRoom } from '../utils/omnichannel/rooms';
@@ -128,6 +130,7 @@ test.describe('OC - Contact Center', async () => {
 				tags: [tagB.data.name],
 			}),
 		]);
+		await setSettingValueById(api, 'Omnichannel_enable_department_removal', true);
 	});
 
 	test.afterAll(async ({ api }) => {
@@ -146,6 +149,7 @@ test.describe('OC - Contact Center', async () => {
 			api.post('/settings/Livechat_allow_manual_on_hold', { value: false }),
 			api.post('/settings/Livechat_allow_manual_on_hold_upon_agent_engagement_only', { value: true }),
 		]);
+		await setSettingValueById(api, 'Omnichannel_enable_department_removal', false);
 	});
 
 	// Change conversation A to on hold and close conversation B
@@ -167,7 +171,7 @@ test.describe('OC - Contact Center', async () => {
 		poOmniChats = new OmnichannelContactCenterChats(page);
 		poNavbar = new Navbar(page);
 
-		await page.goto('/');
+		await new HomeOmnichannel(page).goto();
 		await poNavbar.btnContactCenter.click();
 		await poOmniChats.tabChats.click();
 		await page.waitForURL(URL.contactCenterChats);

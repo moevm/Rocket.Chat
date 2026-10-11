@@ -1,5 +1,5 @@
 import { Pagination } from '@rocket.chat/fuselage';
-import { useDebouncedValue, useMediaQuery, useEffectEvent } from '@rocket.chat/fuselage-hooks';
+import { useDebouncedValue, useMediaQuery, useStableCallback } from '@rocket.chat/fuselage-hooks';
 import {
 	GenericTable,
 	GenericTableBody,
@@ -8,6 +8,7 @@ import {
 	GenericTableLoadingTable,
 	usePagination,
 	useSort,
+	GenericNoResults,
 } from '@rocket.chat/ui-client';
 import { hashKey } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
@@ -16,12 +17,11 @@ import { useTranslation } from 'react-i18next';
 import AddAgent from './AddAgent';
 import AgentsTableRow from './AgentsTableRow';
 import FilterByText from '../../../../components/FilterByText';
-import GenericNoResults from '../../../../components/GenericNoResults/GenericNoResults';
+import GenericError from '../../../../components/GenericError';
 import { links } from '../../../../lib/links';
 import { useAgentsQuery } from '../hooks/useAgentsQuery';
 import { useQuery } from '../hooks/useQuery';
 
-// TODO: missing error state
 const AgentsTable = () => {
 	const { t } = useTranslation();
 
@@ -35,12 +35,12 @@ const AgentsTable = () => {
 	const { current, itemsPerPage, setItemsPerPage, setCurrent, ...paginationProps } = usePagination();
 
 	const query = useQuery({ text, current, itemsPerPage }, debouncedSort);
-	const { data, isSuccess, isLoading } = useAgentsQuery(query);
+	const { data, isSuccess, isLoading, isError, refetch } = useAgentsQuery(query);
 
 	const [defaultQuery] = useState(hashKey([query]));
 	const queryHasChanged = defaultQuery !== hashKey([query]);
 
-	const onHeaderClick = useEffectEvent((id: 'name' | 'username' | 'emails.address' | 'statusLivechat') => {
+	const onHeaderClick = useStableCallback((id: 'name' | 'username' | 'emails.address' | 'statusLivechat') => {
 		if (sortBy === id) {
 			setSort(id, sortDirection === 'asc' ? 'desc' : 'asc');
 			return;
@@ -66,7 +66,7 @@ const AgentsTable = () => {
 			<GenericTableHeaderCell direction={sortDirection} sort='statusLivechat' active={sortBy === 'statusLivechat'} onClick={onHeaderClick}>
 				{t('Livechat_status')}
 			</GenericTableHeaderCell>
-			<GenericTableHeaderCell w='x60'>{t('Remove')}</GenericTableHeaderCell>
+			<GenericTableHeaderCell width='x60'>{t('Remove')}</GenericTableHeaderCell>
 		</>
 	);
 
@@ -99,7 +99,9 @@ const AgentsTable = () => {
 					<GenericTable aria-label={t('Agents')} aria-busy={isLoading}>
 						<GenericTableHeader>{headers}</GenericTableHeader>
 						<GenericTableBody>
-							{data?.users.map((user) => <AgentsTableRow key={user._id} user={user} mediaQuery={mediaQuery} />)}
+							{data?.users.map((user) => (
+								<AgentsTableRow key={user._id} user={user} mediaQuery={mediaQuery} />
+							))}
 						</GenericTableBody>
 					</GenericTable>
 					<Pagination
@@ -113,6 +115,7 @@ const AgentsTable = () => {
 					/>
 				</>
 			)}
+			{isError && <GenericError buttonAction={refetch} />}
 		</>
 	);
 };

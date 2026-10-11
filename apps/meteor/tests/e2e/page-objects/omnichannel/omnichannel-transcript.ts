@@ -1,8 +1,8 @@
-import type { Locator } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
-import { OmnichannelAdmin } from './omnichannel-admin';
+export class OmnichannelTranscript {
+	constructor(private readonly page: Page) {}
 
-export class OmnichannelTranscript extends OmnichannelAdmin {
 	get contactCenterChats(): Locator {
 		return this.page.locator('//button[contains(.,"Chats")]');
 	}
@@ -17,9 +17,5 @@ export class OmnichannelTranscript extends OmnichannelAdmin {
 
 	get btnOpenChat(): Locator {
 		return this.page.getByRole('dialog').getByRole('button', { name: 'Open chat', exact: true });
-	}
-
-	get DownloadedPDF(): Locator {
-		return this.page.locator('[data-qa-type="attachment-title-link"]').last();
 	}
 }

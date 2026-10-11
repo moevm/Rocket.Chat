@@ -1,8 +1,8 @@
+import { FocusScope } from '@react-aria/focus';
 import { css } from '@rocket.chat/css-in-js';
 import { Box } from '@rocket.chat/fuselage';
 import { useLayout } from '@rocket.chat/ui-contexts';
 import { memo } from 'react';
-import { FocusScope } from 'react-aria';
 
 import Sidebar from './Sidebar';
 
@@ -39,7 +39,7 @@ const SidebarRegion = () => {
 		width: var(--sidebar-width);
 		min-width: var(--sidebar-width);
 
-		> .rcx-sidebar:not(:last-child) {
+		> .sidebar-region-item:not(:last-child) {
 			visibility: hidden;
 		}
 
@@ -48,25 +48,20 @@ const SidebarRegion = () => {
 			transform: translate3d(0px, 0px, 0px);
 		}
 
-		/* // 768px to 1599px
-		// using em unit base 16
-		@media (max-width: 48em) {
-			width: 80%;
-			min-width: 80%;
-		} */
+		&:not(:has(.rcx-sidebar__fixed-width)) {
+			// 1600px to 1919px
+			// using em unit base 16
+			@media (min-width: 100em) {
+				width: var(--sidebar-md-width);
+				min-width: var(--sidebar-md-width);
+			}
 
-		// 1600px to 1919px
-		// using em unit base 16
-		@media (min-width: 100em) {
-			width: var(--sidebar-md-width);
-			min-width: var(--sidebar-md-width);
-		}
-
-		// 1920px and up
-		// using em unit base 16
-		@media (min-width: 120em) {
-			width: var(--sidebar-lg-width);
-			min-width: var(--sidebar-lg-width);
+			// 1920px and up
+			// using em unit base 16
+			@media (min-width: 120em) {
+				width: var(--sidebar-lg-width);
+				min-width: var(--sidebar-lg-width);
+			}
 		}
 	`;
 

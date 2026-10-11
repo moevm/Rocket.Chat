@@ -1,7 +1,7 @@
 import type {
 	IMediaCall,
-	IMediaCallChannel,
 	MediaCallActorType,
+	MediaCallNegotiationStream,
 	MediaCallSignedActor,
 	MediaCallSignedContact,
 } from '@rocket.chat/core-typings';
@@ -17,33 +17,31 @@ import type {
 	ClientMediaSignalAnswer,
 	CallFeature,
 } from '@rocket.chat/media-signaling';
-import { MediaCallChannels, MediaCallNegotiations, MediaCalls } from '@rocket.chat/models';
+import { MediaCallNegotiations, MediaCalls } from '@rocket.chat/models';
 
+import { DEFAULT_CALL_FEATURES } from '../../constants';
 import type { IMediaCallAgent } from '../../definition/IMediaCallAgent';
+import type { SignalProcessingOptions } from '../../definition/common';
 import { logger } from '../../logger';
 import { mediaCallDirector } from '../../server/CallDirector';
 import { getMediaCallServer } from '../../server/injection';
 import { stripSensitiveDataFromSignal } from '../../server/stripSensitiveData';
 
 export class UserActorSignalProcessor {
-	public get contractId(): string {
-		return this.channel.contractId;
-	}
-
 	public get callId(): string {
-		return this.channel.callId;
+		return this.call._id;
 	}
 
 	public get actorId(): string {
-		return this.channel.actorId;
+		return this.agent.actorId;
 	}
 
 	public get actorType(): MediaCallActorType {
-		return this.channel.actorType;
+		return this.agent.actorType;
 	}
 
 	public get role(): CallRole {
-		return this.channel.role;
+		return this.agent.role;
 	}
 
 	public get actor(): MediaCallSignedActor {
@@ -58,15 +56,18 @@ export class UserActorSignalProcessor {
 
 	public readonly ignored: boolean;
 
+	private throwIfSkipped: boolean;
+
 	constructor(
 		protected readonly agent: IMediaCallAgent,
 		protected readonly call: IMediaCall,
-		protected readonly channel: IMediaCallChannel,
+		public readonly contractId: string,
 	) {
-		const actor = call[channel.role];
+		const actor = call[this.role];
 
-		this.signed = Boolean(actor.contractId && actor.contractId === channel.contractId);
-		this.ignored = Boolean(actor.contractId && actor.contractId !== channel.contractId);
+		this.signed = Boolean(actor.contractId && actor.contractId === contractId);
+		this.ignored = Boolean(actor.contractId && actor.contractId !== contractId);
+		this.throwIfSkipped = false;
 	}
 
 	public async requestWebRTCOffer(params: { negotiationId: string }): Promise<void> {
@@ -80,7 +81,7 @@ export class UserActorSignalProcessor {
 		});
 	}
 
-	public async processSignal(signal: ClientMediaSignal): Promise<void> {
+	public async processSignal(signal: ClientMediaSignal, options: SignalProcessingOptions = {}): Promise<void> {
 		if (signal.type !== 'local-state') {
 			logger.debug({
 				msg: 'UserActorSignalProcessor.processSignal',
@@ -90,6 +91,8 @@ export class UserActorSignalProcessor {
 			});
 		}
 
+		this.throwIfSkipped = options.throwIfSkipped || false;
+
 		// The code will only reach this point if one of the following conditions are true:
 		// 1. the signal came from the exact user session where the caller initiated the call
 		// 2. the signal came from the exact user session where the callee accepted the call
@@ -97,7 +100,7 @@ export class UserActorSignalProcessor {
 		// 4. It's a hangup request with reason = 'another-client' and the request came from any valid client of either user
 		switch (signal.type) {
 			case 'local-sdp':
-				return this.saveLocalDescription(signal.sdp, signal.negotiationId);
+				return this.saveLocalDescription(signal.sdp, signal.negotiationId, signal.streams);
 			case 'answer':
 				return this.processAnswer(signal);
 			case 'hangup':
@@ -119,12 +122,16 @@ export class UserActorSignalProcessor {
 		return mediaCallDirector.hangup(this.call, this.agent, reason);
 	}
 
-	protected async saveLocalDescription(sdp: RTCSessionDescriptionInit, negotiationId: string): Promise<void> {
+	protected async saveLocalDescription(
+		sdp: RTCSessionDescriptionInit,
+		negotiationId: string,
+		streams?: MediaCallNegotiationStream[],
+	): Promise<void> {
 		if (!this.signed) {
 			return;
 		}
 
-		await mediaCallDirector.saveWebrtcSession(this.call, this.agent, { sdp, negotiationId }, this.contractId);
+		await mediaCallDirector.saveWebrtcSession(this.call, this.agent, { sdp, negotiationId, streams }, this.contractId);
 	}
 
 	private async processAnswer(signal: ClientMediaSignalAnswer): Promise<void> {
@@ -132,7 +139,7 @@ export class UserActorSignalProcessor {
 			case 'ack':
 				return this.clientIsReachable();
 			case 'accept':
-				return this.clientHasAccepted(signal.supportedFeatures || ['audio']);
+				return this.clientHasAccepted(signal.supportedFeatures || DEFAULT_CALL_FEATURES);
 			case 'unavailable':
 				return this.clientIsUnavailable();
 			case 'reject':
@@ -290,13 +297,11 @@ export class UserActorSignalProcessor {
 	}
 
 	protected async clientHasRejected(): Promise<void> {
-		if (!this.isCallPending()) {
+		if (!this.validatePendingCallee()) {
 			return;
 		}
 
-		if (this.role === 'callee') {
-			return mediaCallDirector.hangup(this.call, this.agent, 'rejected');
-		}
+		return mediaCallDirector.hangup(this.call, this.agent, 'rejected');
 	}
 
 	protected async clientIsUnavailable(): Promise<void> {
@@ -309,21 +314,11 @@ export class UserActorSignalProcessor {
 	}
 
 	protected async clientHasAccepted(supportedFeatures: CallFeature[]): Promise<void> {
-		if (!this.isCallPending()) {
+		if (!this.validatePendingCallee()) {
 			return;
 		}
 
-		if (this.role === 'callee') {
-			await mediaCallDirector.acceptCall(this.call, this.agent, { calleeContractId: this.contractId, supportedFeatures });
-		}
-	}
-
-	protected async clientIsActive(): Promise<void> {
-		const result = await MediaCallChannels.setActiveById(this.channel._id);
-		if (result.modifiedCount) {
-			logger.info({ msg: 'Call Channel was flagged as active', callId: this.callId, role: this.role });
-			await mediaCallDirector.activate(this.call, this.agent);
-		}
+		await mediaCallDirector.acceptCall(this.call, this.agent, { calleeContractId: this.contractId, supportedFeatures });
 	}
 
 	protected async sendSignal(signal: ServerMediaSignal): Promise<void> {
@@ -336,6 +331,24 @@ export class UserActorSignalProcessor {
 
 	protected isPastNegotiation(): boolean {
 		return ['active', 'hangup'].includes(this.call.state);
+	}
+
+	protected validatePendingCallee(): boolean {
+		if (this.role !== 'callee') {
+			if (this.throwIfSkipped) {
+				throw new Error('invalid-call-role');
+			}
+			return false;
+		}
+
+		if (!this.isCallPending()) {
+			if (this.throwIfSkipped) {
+				throw new Error('invalid-call-state');
+			}
+			return false;
+		}
+
+		return true;
 	}
 
 	private async reviewLocalState(signal: ClientMediaSignalLocalState): Promise<void> {
@@ -354,11 +367,9 @@ export class UserActorSignalProcessor {
 					.catch(() => null);
 			}
 
-			if (this.channel.state === 'active' || this.channel.activeAt) {
-				return;
+			if (!this.call.activatedAt) {
+				await mediaCallDirector.activate(this.call, this.agent);
 			}
-
-			await this.clientIsActive();
 		}
 	}
 }

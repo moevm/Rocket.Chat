@@ -1,4 +1,3 @@
-/* eslint no-await-in-loop: 0 */
 import type { Page } from '@playwright/test';
 
 import * as constants from '../../config/constants';
@@ -9,7 +8,7 @@ import { formatIntoFullMatrixUsername, formatUsernameAndDomainIntoMatrixFormat }
 import { registerUser } from '../../utils/register-user';
 import { test, expect, setupTesting, tearDownTesting } from '../../utils/test';
 
-test.describe.only('Federation - Threads', () => {
+test.describe('Federation - Threads', () => {
 	let poFederationChannelServer1: FederationChannel;
 	let poFederationChannelServer2: FederationChannel;
 	let userFromServer2UsernameOnly: string;

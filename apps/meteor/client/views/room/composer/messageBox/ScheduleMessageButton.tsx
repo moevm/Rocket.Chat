@@ -1,11 +1,12 @@
-import { useCallback } from 'react';
 import { MessageComposerAction } from '@rocket.chat/ui-composer';
 import { useTranslation, useToastMessageDispatch, useSetModal } from '@rocket.chat/ui-contexts';
+import { useCallback } from 'react';
 
-import { useRoom } from '../../contexts/RoomContext';
 import { useChat } from '../../contexts/ChatContext';
-import { useScheduleMessage } from '../hooks/useScheduleMessage';
+import { useRoom } from '../../contexts/RoomContext';
 import ScheduleMessageModal from '../../modals/ScheduleMessageModal';
+import ScheduledMessagesListModal from '../../modals/ScheduleMessageModal/ScheduledMessagesListModal';
+import { useScheduleMessage } from '../hooks/useScheduleMessage';
 
 type ScheduleMessageButtonProps = {
 	disabled: boolean;
@@ -26,7 +27,7 @@ const ScheduleMessageButton = ({ disabled, tmid, tshow, previewUrls }: ScheduleM
 		const message = chat?.composer?.text ?? '';
 
 		if (!message.trim()) {
-			dispatchToastMessage({ type: 'error', message: t('Enter_a_custom_message') });
+			setModal(<ScheduledMessagesListModal roomId={room._id} onClose={() => setModal(null)} />);
 			return;
 		}
 
@@ -47,6 +48,7 @@ const ScheduleMessageButton = ({ disabled, tmid, tshow, previewUrls }: ScheduleM
 
 						chat?.composer?.clear();
 						dispatchToastMessage({ type: 'success', message: t('Message_scheduled_successfully') });
+						setModal(null);
 					} catch (error) {
 						dispatchToastMessage({ type: 'error', message: t('Error_scheduling_message') });
 					}

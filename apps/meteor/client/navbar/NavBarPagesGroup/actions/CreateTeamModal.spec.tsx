@@ -4,9 +4,7 @@ import userEvent from '@testing-library/user-event';
 
 import CreateTeamModal from './CreateTeamModal';
 
-jest.mock('../../../lib/utils/goToRoomById', () => ({
-	goToRoomById: jest.fn(),
-}));
+jest.mock('../../../lib/rooms/roomCoordinator', () => ({}));
 
 describe('CreateTeamModal', () => {
 	it('should render with encryption option disabled and set to off when E2E_Enable=false and E2E_Enabled_Default_PrivateRooms=false', async () => {
@@ -174,6 +172,34 @@ describe('CreateTeamModal', () => {
 		await userEvent.click(broadcast);
 		expect(broadcast).not.toBeChecked();
 		expect(encrypted).not.toBeChecked();
+		expect(encrypted).toBeDisabled();
+	});
+
+	it('should render a private team with encryption checked and disabled for changes when private room encryption is forced', async () => {
+		render(<CreateTeamModal onClose={() => null} />, {
+			wrapper: mockAppRoot().withSetting('E2E_Enable', true).withSetting('E2E_Force_Encryption_For_Private_Rooms', true).build(),
+		});
+
+		await userEvent.click(screen.getByText('Advanced_settings'));
+
+		const encrypted = screen.getByLabelText('Teams_New_Encrypted_Label') as HTMLInputElement;
+		const priv = screen.getByLabelText('Teams_New_Private_Label') as HTMLInputElement;
+
+		// private by default: encrypted is forced ON and cannot be changed
+		expect(priv).toBeChecked();
+		expect(encrypted).toBeChecked();
+		expect(encrypted).toBeDisabled();
+
+		// Private ON -> OFF: encrypted turns OFF and stays disabled (public teams cannot be encrypted)
+		await userEvent.click(priv);
+		expect(priv).not.toBeChecked();
+		expect(encrypted).not.toBeChecked();
+		expect(encrypted).toBeDisabled();
+
+		// Private OFF -> ON: encryption is forced back ON and remains disabled
+		await userEvent.click(priv);
+		expect(priv).toBeChecked();
+		expect(encrypted).toBeChecked();
 		expect(encrypted).toBeDisabled();
 	});
 
