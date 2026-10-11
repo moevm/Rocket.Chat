@@ -1,4 +1,4 @@
-import { SidebarV2ItemBadge } from '@rocket.chat/fuselage';
+import { SidebarItemBadge } from '@rocket.chat/fuselage';
 import { useTranslation } from 'react-i18next';
 
 type DraftBadgeProps = {
@@ -9,14 +9,14 @@ const DraftBadge = ({ roomTitle }: DraftBadgeProps) => {
 	const { t } = useTranslation();
 
 	return (
-		<SidebarV2ItemBadge
+		<SidebarItemBadge
 			variant='warning'
 			title={t('Draft_message')}
 			role='status'
 			aria-label={roomTitle ? t('__draftMessage__from__roomTitle__', { roomTitle }) : t('Draft_message')}
 		>
 			{t('Draft')}
-		</SidebarV2ItemBadge>
+		</SidebarItemBadge>
 	);
 };
 
