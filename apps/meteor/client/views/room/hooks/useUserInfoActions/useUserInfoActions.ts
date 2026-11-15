@@ -9,6 +9,7 @@ import { useMemo } from 'react';
 import { useAddUserAction } from './actions/useAddUserAction';
 import { useBanUserAction } from './actions/useBanUserAction';
 import { useBlockUserAction } from './actions/useBlockUserAction';
+import { useChangeImportantMessageMarkerAction } from './actions/useChangeImportantMessageMarkerAction';
 import { useChangeLeaderAction } from './actions/useChangeLeaderAction';
 import { useChangeModeratorAction } from './actions/useChangeModeratorAction';
 import { useChangeOwnerAction } from './actions/useChangeOwnerAction';
@@ -52,7 +53,7 @@ export type UserMenuAction = {
 }[];
 
 type UserInfoActionsParams = {
-	user: Pick<IUser, '_id' | 'username' | 'name' | 'freeSwitchExtension' | 'federated'>;
+	user: Pick<IUser, '_id' | 'username' | 'name' | 'freeSwitchExtension' | 'federated' | 'roles'>;
 	rid: IRoom['_id'];
 	reload?: () => void;
 	size?: number;
@@ -77,6 +78,7 @@ export const useUserInfoActions = ({
 	const blockUser = useBlockUserAction(user, rid);
 	const changeLeader = useChangeLeaderAction(user, rid);
 	const changeModerator = useChangeModeratorAction(user, rid);
+	const changeImportantMessageMarker = useChangeImportantMessageMarkerAction(user, rid);
 	const openModerationConsole = useRedirectModerationConsole(user._id);
 	const changeOwner = useChangeOwnerAction(user, rid);
 	const openDirectMessage = useDirectMessageAction(user, rid);
@@ -102,6 +104,7 @@ export const useUserInfoActions = ({
 			...(isMember && changeOwner && { changeOwner }),
 			...(isMember && changeLeader && { changeLeader }),
 			...(isMember && changeModerator && { changeModerator }),
+			...(isMember && changeImportantMessageMarker && { changeImportantMessageMarker }),
 			...(isMember && ignoreUser && { ignoreUser }),
 			...(blockUser && { toggleBlock: blockUser }),
 			...((isMember || isInvited) && removeUser && { removeUser }),
@@ -116,6 +119,7 @@ export const useUserInfoActions = ({
 			changeOwner,
 			changeLeader,
 			changeModerator,
+			changeImportantMessageMarker,
 			ignoreUser,
 			muteUser,
 			blockUser,

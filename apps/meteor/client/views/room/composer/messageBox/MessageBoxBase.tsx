@@ -53,6 +53,8 @@ type MessageBoxBaseProps = {
 	unencryptedMessagesAllowed: boolean;
 	isMobile: boolean;
 	joinPending: boolean;
+	isImportantActive: boolean;
+	onImportantToggle: (active: boolean) => void;
 	onEmojiClick: (e: MouseEvent<HTMLElement>) => void;
 	onSend: () => void;
 	onJoin?: () => Promise<void>;
@@ -86,6 +88,8 @@ const MessageBoxBase = ({
 	unencryptedMessagesAllowed,
 	isMobile,
 	joinPending,
+	isImportantActive,
+	onImportantToggle,
 	onEmojiClick,
 	onSend,
 	onJoin,
@@ -156,6 +160,8 @@ const MessageBoxBase = ({
 							tmid={tmid}
 							isRecording={isRecording}
 							variant={variant}
+							isImportantActive={isImportantActive}
+							onImportantToggle={onImportantToggle}
 							isEditing={isEditing}
 						/>
 					</MessageComposerToolbarActions>

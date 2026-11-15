@@ -89,6 +89,7 @@ const RichTextMessageBox = ({
 
 	const [stateTyping, setTyping] = useReducer(reducer, { isTyping: false, hideplaceholder: false });
 	const { isTyping: typing, hideplaceholder } = stateTyping;
+	const [isImportantActive, setIsImportantActive] = useState(false);
 
 	const { isMobile } = useLayout();
 	const sendOnEnterBehavior = useUserPreference<'normal' | 'alternative' | 'desktop'>('sendOnEnter') || isMobile;
@@ -223,7 +224,15 @@ const RichTextMessageBox = ({
 			tshow,
 			previewUrls,
 			isSlashCommandAllowed,
+			isImportant: isImportantActive,
 		});
+
+		setIsImportantActive(false);
+	});
+
+	const handleImportantToggle = useStableCallback((active: boolean) => {
+		setIsImportantActive(active);
+		contentEditableRef.current?.focus();
 	});
 
 	const closeEditing = async (event: KeyboardEvent | MouseEvent<HTMLElement>) => {
@@ -500,6 +509,8 @@ const RichTextMessageBox = ({
 			unencryptedMessagesAllowed={unencryptedMessagesAllowed}
 			isMobile={isMobile}
 			joinPending={joinMutation.isPending}
+			isImportantActive={isImportantActive}
+			onImportantToggle={handleImportantToggle}
 			onEmojiClick={handleOpenEmojiPicker}
 			onSend={handleSendMessage}
 			onJoin={onJoin}

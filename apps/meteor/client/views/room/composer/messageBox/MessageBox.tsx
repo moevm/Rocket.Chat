@@ -6,7 +6,7 @@ import { MessageComposerInputExpandable } from '@rocket.chat/ui-composer';
 import { useTranslation, useUserPreference, useLayout, useSetting } from '@rocket.chat/ui-contexts';
 import { useMutation } from '@tanstack/react-query';
 import type { MouseEvent, ClipboardEvent, ChangeEvent } from 'react';
-import { memo, useRef, useReducer, useCallback, useSyncExternalStore } from 'react';
+import { memo, useRef, useReducer, useCallback, useSyncExternalStore, useState } from 'react';
 
 import MessageBoxBase from './MessageBoxBase';
 import MessageComposerFiles from './MessageComposerFiles';
@@ -40,7 +40,13 @@ const reducer = (_: unknown, event: ChangeEvent<HTMLInputElement>): boolean => {
 
 export type MessageBoxProps = {
 	tmid?: IMessage['_id'];
-	onSend?: (params: { value: string; tshow?: boolean; previewUrls?: string[]; isSlashCommandAllowed?: boolean }) => Promise<void>;
+	onSend?: (params: {
+		value: string;
+		tshow?: boolean;
+		previewUrls?: string[];
+		isSlashCommandAllowed?: boolean;
+		isImportant?: boolean;
+	}) => Promise<void>;
 	onJoin?: () => Promise<void>;
 	onResize?: () => void;
 	onTyping?: () => void;
@@ -76,6 +82,7 @@ const MessageBox = ({
 	const composerPlaceholder = useMessageBoxPlaceholder(t('Message'), room);
 	const quoteChainLimit = useSetting('Message_QuoteChainLimit', 2);
 	const [typing, setTyping] = useReducer(reducer, false);
+	const [isImportantActive, setIsImportantActive] = useState(false);
 
 	const { isMobile } = useLayout();
 	const sendOnEnterBehavior = useUserPreference<'normal' | 'alternative' | 'desktop'>('sendOnEnter') || isMobile;
@@ -155,7 +162,15 @@ const MessageBox = ({
 			tshow,
 			previewUrls,
 			isSlashCommandAllowed,
+			isImportant: isImportantActive,
 		});
+
+		setIsImportantActive(false);
+	});
+
+	const handleImportantToggle = useStableCallback((active: boolean) => {
+		setIsImportantActive(active);
+		textareaRef.current?.focus();
 	});
 
 	const closeEditing = async (event: KeyboardEvent | MouseEvent<HTMLElement>) => {
@@ -295,8 +310,6 @@ const MessageBox = ({
 
 	const federationMatrixEnabled = useIsFederationEnabled();
 
-	// canSendMessage directives read from the Subscriptions store, so subscribe to it to re-run on changes
-	// (e.g. user joins/leaves the room). room and federationMatrixEnabled are already React-reactive.
 	const subscribeSubscriptions = useCallback((onStoreChange: () => void) => Subscriptions.use.subscribe(onStoreChange), []);
 	const canSend = useSyncExternalStore(subscribeSubscriptions, () => {
 		if (!room.t) {
@@ -349,7 +362,6 @@ const MessageBox = ({
 				}
 
 				const imageExtension = fileItem ? getImageExtensionFromMime(fileItem.type) : undefined;
-
 				const extension = imageExtension ? `.${imageExtension}` : '';
 
 				Object.defineProperty(fileItem, 'name', {
@@ -430,6 +442,8 @@ const MessageBox = ({
 			unencryptedMessagesAllowed={unencryptedMessagesAllowed}
 			isMobile={isMobile}
 			joinPending={joinMutation.isPending}
+			isImportantActive={isImportantActive}
+			onImportantToggle={handleImportantToggle}
 			onEmojiClick={handleOpenEmojiPicker}
 			onSend={handleSendMessage}
 			onJoin={onJoin}

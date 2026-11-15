@@ -47,11 +47,13 @@ const ComposerMessage = ({ tmid, onSend, ...props }: ComposerMessageProps) => {
 				tshow,
 				previewUrls,
 				isSlashCommandAllowed,
+				isImportant,
 			}: {
 				value: string;
 				tshow?: boolean;
 				previewUrls?: string[];
 				isSlashCommandAllowed?: boolean;
+				isImportant?: boolean;
 			}): Promise<void> => {
 				try {
 					await chat?.action.stop('typing');
@@ -60,6 +62,7 @@ const ComposerMessage = ({ tmid, onSend, ...props }: ComposerMessageProps) => {
 						tshow,
 						previewUrls,
 						isSlashCommandAllowed,
+						isImportant,
 						tmid,
 					});
 					if (newMessageSent) onSend?.();
