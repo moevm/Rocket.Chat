@@ -35,6 +35,7 @@ export type * from './models/ILivechatUnitMonitorsModel';
 export type * from './models/ILivechatVisitorsModel';
 export type * from './models/ILoginServiceConfigurationModel';
 export type * from './models/IMessagesModel';
+export type * from './models/IScheduledMessagesModel';
 export type * from './models/INotificationQueueModel';
 export type * from './models/INpsModel';
 export type * from './models/INpsVoteModel';

@@ -4962,5 +4962,20 @@
 	"Your_temporary_password_is_password": "Ваш временный пароль <strong>[password]</strong>",
 	"Your_TOTP_has_been_reset": "Ваш двухфакторный TOTP был сброшен.",
 	"Your_workspace_is_ready": "Ваше рабочее пространство готово к работе 🎉",
-	"Zapier": "Zapier"
+	"Zapier": "Zapier",
+	"manage-scheduled-messages": "Управление запланированными сообщениями",
+	"manage-scheduled-messages_description": "Право управлять запланированными сообщениями других пользователей",
+	"Schedule": "Запланировать",
+	"Schedule_Message": "Запланировать сообщение",
+	"Schedule_Message_Description": "Выберите, когда нужно отправить это сообщение",
+	"Schedule_message": "Запланировать сообщение",
+	"Scheduled_Messages": "Запланированные сообщения",
+	"Scheduled_message_cancelled": "Запланированное сообщение отменено",
+	"Scheduled_message_failed": "Не удалось отправить запланированное сообщение",
+	"Scheduled_message_failed_with_reason": "Не удалось отправить: {{reason}}",
+	"Scheduled_message_processing": "Отправка…",
+	"Select_Date_and_Time": "Выберите дату и время",
+	"Message_scheduled_successfully": "Сообщение успешно запланировано",
+	"Error_scheduling_message": "Ошибка при планировании сообщения",
+	"No_scheduled_messages": "Нет запланированных сообщений"
 }

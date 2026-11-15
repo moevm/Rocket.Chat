@@ -7737,5 +7737,20 @@
 	"Zapier_integration_has_been_deprecated": "The Zapier integration has been deprecated, may not work as expected and will not receive updates",
 	"Zapier_integration_is_not_available": "The Zapier integration has been deprecated and is no longer available for new Rocket.Chat workspaces",
 	"Zoom_in": "Zoom in",
-	"Zoom_out": "Zoom out"
+	"Zoom_out": "Zoom out",
+	"Error_scheduling_message": "Error scheduling message",
+	"manage-scheduled-messages": "Manage scheduled messages",
+	"manage-scheduled-messages_description": "Permission to manage scheduled messages from other users",
+	"Message_scheduled_successfully": "Message scheduled successfully",
+	"No_scheduled_messages": "No scheduled messages",
+	"Schedule": "Schedule",
+	"Schedule_Message": "Schedule Message",
+	"Schedule_Message_Description": "Choose when you want this message to be sent",
+	"Schedule_message": "Schedule message",
+	"Scheduled_Messages": "Scheduled Messages",
+	"Scheduled_message_cancelled": "Scheduled message cancelled",
+	"Scheduled_message_failed": "Failed to send scheduled message",
+	"Scheduled_message_failed_with_reason": "Failed to send: {{reason}}",
+	"Scheduled_message_processing": "Sending…",
+	"Select_Date_and_Time": "Select Date and Time"
 }
