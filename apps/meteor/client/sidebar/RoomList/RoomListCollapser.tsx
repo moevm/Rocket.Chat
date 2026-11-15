@@ -2,6 +2,7 @@ import { Badge, IconButton, SidebarCollapseGroup, SidebarCollapseGroupMenu } fro
 import type { HTMLAttributes, KeyboardEvent, MouseEventHandler } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import UserRoomCategoryGroupMenu from './UserRoomCategoryGroupMenu';
 import { useIsEnterprise } from '../../hooks/useIsEnterprise';
 import { usePreventPropagation } from '../../hooks/usePreventPropagation';
 import { useDeferredMenuMount } from '../Item/useDeferredMenuMount';
@@ -27,6 +28,28 @@ const RoomListCollapser = ({ group, canMoveUp, canMoveDown, onMoveUp, onMoveDown
 	const { unreadTitle, unreadVariant, showUnread, unreadCount } = useUnreadDisplay(group.unreadInfo);
 
 	const title = group.translateTitle ? t(group.title) : group.title;
+	const renderMenu = () => {
+		if (!menuVisibility) {
+			return <IconButton tabIndex={-1} aria-hidden mini icon='kebab' onPointerDown={mountNow} />;
+		}
+
+		if (group.userRoomCategory) {
+			return <UserRoomCategoryGroupMenu categoryName={group.userRoomCategory.name} />;
+		}
+
+		return (
+			<CategoryMenu
+				category={group.category}
+				groupKey={group.key}
+				showUnreads={group.showUnreads}
+				keepUnreadsOnTop={group.keepUnreadsOnTop}
+				canMoveUp={canMoveUp}
+				canMoveDown={canMoveDown}
+				onMoveUp={onMoveUp}
+				onMoveDown={onMoveDown}
+			/>
+		);
+	};
 
 	return (
 		<SidebarCollapseGroup
@@ -44,23 +67,8 @@ const RoomListCollapser = ({ group, canMoveUp, canMoveDown, onMoveUp, onMoveDown
 			onFocus={mountNow}
 			onPointerEnter={requestMount}
 			menu={
-				isEnterprise ? (
-					<SidebarCollapseGroupMenu onClick={preventPropagation}>
-						{menuVisibility ? (
-							<CategoryMenu
-								category={group.category}
-								groupKey={group.key}
-								showUnreads={group.showUnreads}
-								keepUnreadsOnTop={group.keepUnreadsOnTop}
-								canMoveUp={canMoveUp}
-								canMoveDown={canMoveDown}
-								onMoveUp={onMoveUp}
-								onMoveDown={onMoveDown}
-							/>
-						) : (
-							<IconButton tabIndex={-1} aria-hidden mini icon='kebab' onPointerDown={mountNow} />
-						)}
-					</SidebarCollapseGroupMenu>
+				isEnterprise || group.userRoomCategory ? (
+					<SidebarCollapseGroupMenu onClick={preventPropagation}>{renderMenu()}</SidebarCollapseGroupMenu>
 				) : undefined
 			}
 			aria-label={group.collapsed ? t('Expand_group', { group: title }) : t('Collapse_group', { group: title })}

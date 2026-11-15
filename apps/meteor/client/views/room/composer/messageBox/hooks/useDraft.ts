@@ -1,8 +1,10 @@
 import { useEndpoint } from '@rocket.chat/ui-contexts';
 import { useCallback, useEffect, useRef } from 'react';
 
+import { getMessageBoxStorageKey } from '../../../../../lib/utils/getMessageBoxStorageKey';
+
 export const useDraft = (rid: string, serverDraft?: string, tmid?: string, threadExists = true) => {
-	const storageKey = `messagebox_${rid}${tmid ? `-${tmid}` : ''}`;
+	const storageKey = getMessageBoxStorageKey(rid, tmid);
 	const saveDraft = useEndpoint('POST', '/v1/rooms.saveDraft');
 
 	const setLocalDraft = useCallback(
@@ -12,6 +14,7 @@ export const useDraft = (rid: string, serverDraft?: string, tmid?: string, threa
 			} else {
 				localStorage.removeItem(storageKey);
 			}
+			window.dispatchEvent(new CustomEvent('localStorageChange', { detail: { key: storageKey } }));
 		},
 		[storageKey],
 	);

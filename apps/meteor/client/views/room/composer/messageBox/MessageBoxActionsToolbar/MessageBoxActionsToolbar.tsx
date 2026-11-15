@@ -2,7 +2,8 @@ import type { IRoom, IMessage } from '@rocket.chat/core-typings';
 import { isTruthy } from '@rocket.chat/tools';
 import { GenericMenu, type GenericMenuItemProps } from '@rocket.chat/ui-client';
 import { MessageComposerAction, MessageComposerActionsDivider } from '@rocket.chat/ui-composer';
-import { useLayoutHiddenActions } from '@rocket.chat/ui-contexts';
+import { useLayoutHiddenActions, useUserId, usePermission, useUserSubscription, useMethod } from '@rocket.chat/ui-contexts';
+import { useQuery } from '@tanstack/react-query';
 import type { MouseEvent } from 'react';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -26,6 +27,8 @@ export type MessageBoxActionsToolbarProps = {
 	isRecording: boolean;
 	rid: IRoom['_id'];
 	tmid?: IMessage['_id'];
+	isImportantActive?: boolean;
+	onImportantToggle?: (active: boolean) => void;
 	isEditing: boolean;
 };
 
@@ -43,6 +46,8 @@ const MessageBoxActionsToolbar = ({
 	tmid,
 	variant = 'large',
 	isMicrophoneDenied,
+	isImportantActive = false,
+	onImportantToggle,
 	isEditing = false,
 }: MessageBoxActionsToolbarProps) => {
 	const { t } = useTranslation();
@@ -53,6 +58,27 @@ const MessageBoxActionsToolbar = ({
 	}
 
 	const room = useRoom();
+	const userId = useUserId();
+	const subscription = useUserSubscription(rid);
+	const getUserRoomRole = useMethod('getUserRoomRole');
+
+	const { data: hasRoleFromQuery = false } = useQuery({
+		queryKey: ['user-room-role-toolbar', userId, rid, 'important-message-marker'],
+		queryFn: async () => {
+			if (!userId) return false;
+			try {
+				return await getUserRoomRole(rid, userId, 'important-message-marker');
+			} catch (error) {
+				return false;
+			}
+		},
+		staleTime: 0,
+		enabled: !!userId,
+	});
+
+	const hasPermission = usePermission('mark-message-as-important', rid);
+	const hasRole = (subscription?.roles?.includes('important-message-marker') ?? false) || hasRoleFromQuery;
+	const canMarkMessagesAsImportant = hasPermission || hasRole;
 
 	const disableBasicActions = !canSend || isRecording || isEditing;
 
@@ -148,6 +174,16 @@ const MessageBoxActionsToolbar = ({
 		<>
 			<MessageComposerActionsDivider />
 			{featured.map((action) => action && renderAction(action))}
+			{canMarkMessagesAsImportant && (
+				<MessageComposerAction
+					icon='check'
+					data-qa-id='important-message'
+					title={t('Mark_as_important')}
+					disabled={isRecording || !canSend || isEditing}
+					onClick={() => onImportantToggle?.(!isImportantActive)}
+					pressed={isImportantActive}
+				/>
+			)}
 			<GenericMenu
 				disabled={isRecording || !canSend}
 				data-qa-id='menu-more-actions'

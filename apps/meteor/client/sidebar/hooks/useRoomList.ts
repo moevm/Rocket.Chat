@@ -1,4 +1,4 @@
-import type { ILivechatInquiryRecord, ISidebarCategory } from '@rocket.chat/core-typings';
+import type { ILivechatInquiryRecord, ISidebarCategory, IUserRoomCategory } from '@rocket.chat/core-typings';
 import { SIDEBAR_SYSTEM_GROUP_KEYS } from '@rocket.chat/core-typings';
 import { useDebouncedValue } from '@rocket.chat/fuselage-hooks';
 import type { SubscriptionWithRoom } from '@rocket.chat/ui-contexts';
@@ -7,8 +7,10 @@ import { useVideoConfIncomingCalls, useVideoConfWindowEnabled } from '@rocket.ch
 import { useMemo } from 'react';
 
 import { filterGroupVisibility, getRoomCategory, useCategoryList } from './useCategoryList';
+import { SIDEBAR_BUILTIN_GROUP_KEYS } from '../../../lib/sidebarBuiltinGroups';
 import { useIsEnterprise } from '../../hooks/useIsEnterprise';
 import { useSortQueryOptions } from '../../hooks/useSortQueryOptions';
+import { useUserRoomCategories } from '../../hooks/useUserRoomCategories';
 import { useOpenedRoom } from '../../lib/RoomManager';
 import { useOmnichannelEnabled } from '../../views/omnichannel/hooks/useOmnichannelEnabled';
 import { useQueuedInquiries } from '../../views/omnichannel/hooks/useQueuedInquiries';
@@ -32,6 +34,7 @@ export type SidebarRoomListGroup = {
 	title: string;
 	translateTitle: boolean;
 	category?: ISidebarCategory;
+	userRoomCategory?: IUserRoomCategory;
 	showUnreads: boolean;
 	keepUnreadsOnTop: boolean;
 	collapsed: boolean;
@@ -54,7 +57,8 @@ export const useRoomList = ({ collapsedGroups }: { collapsedGroups?: string[] })
 
 	const { data: { isEnterprise = false } = {} } = useIsEnterprise();
 
-	const { customCategories } = useUserSidebarCategories();
+	const { customCategories: sidebarCustomCategories } = useUserSidebarCategories();
+	const { data: userRoomCategories = [] } = useUserRoomCategories();
 	const { isShowUnreads, isKeepUnreadsOnTop } = useToggleUnreads();
 
 	const options = useSortQueryOptions();
@@ -85,7 +89,42 @@ export const useRoomList = ({ collapsedGroups }: { collapsedGroups?: string[] })
 				unfilteredGroups.set(category, new Set<SubscriptionWithRoom>());
 			});
 
+			const personalCategoriesByKey = new Map<string, IUserRoomCategory>();
+			const personalCategoryKeys: string[] = [];
+			const usedGroupKeys = new Set(unfilteredGroups.keys());
+			const roomIdToPersonalCategoryKey = new Map<string, string>();
+
+			userRoomCategories
+				.filter((category) => !SIDEBAR_BUILTIN_GROUP_KEYS.has(category.name))
+				.forEach((category) => {
+					let key = category.name;
+					while (usedGroupKeys.has(key)) {
+						key = `user-room-category:${key}`;
+					}
+					usedGroupKeys.add(key);
+					personalCategoriesByKey.set(key, category);
+					personalCategoryKeys.push(key);
+					unfilteredGroups.set(key, new Set<SubscriptionWithRoom>());
+
+					for (const roomId of category.roomIds ?? []) {
+						// If stale data lists a room in multiple categories, the first stored category wins.
+						if (!roomIdToPersonalCategoryKey.has(roomId)) {
+							roomIdToPersonalCategoryKey.set(roomId, key);
+						}
+					}
+				});
+
 			rooms.forEach((room) => {
+				if (room.archived) {
+					return;
+				}
+
+				const personalCategoryKey = roomIdToPersonalCategoryKey.get(room.rid);
+				if (personalCategoryKey) {
+					unfilteredGroups.get(personalCategoryKey)?.add(room);
+					return;
+				}
+
 				const roomCategory = getRoomCategory(room, {
 					groups: unfilteredGroups,
 					hasIncomingCalls: (rid: SubscriptionWithRoom['rid']) => {
@@ -132,9 +171,10 @@ export const useRoomList = ({ collapsedGroups }: { collapsedGroups?: string[] })
 				}, emptyUnreadInfo());
 
 			const makeGroup = (key: string, set: Set<SubscriptionWithRoom>): SidebarRoomListGroup => {
-				const category = customCategories.find(({ _id }) => _id === key);
+				const category = sidebarCustomCategories.find(({ _id }) => _id === key);
+				const userRoomCategory = personalCategoriesByKey.get(key);
 
-				const title = category ? category.name : key;
+				const title = userRoomCategory?.name ?? category?.name ?? key;
 				const translateTitle = SIDEBAR_SYSTEM_GROUP_KEYS.includes(key as any);
 				const collapsed = isCollapsed(key);
 				const showUnreadsForGroup = isEnterprise ? isShowUnreads(key) : false;
@@ -158,6 +198,7 @@ export const useRoomList = ({ collapsedGroups }: { collapsedGroups?: string[] })
 					title,
 					translateTitle,
 					category,
+					userRoomCategory,
 					showUnreads,
 					keepUnreadsOnTop,
 					collapsed,
@@ -171,6 +212,17 @@ export const useRoomList = ({ collapsedGroups }: { collapsedGroups?: string[] })
 			};
 
 			const groups = filterGroupVisibility(unfilteredGroups, isEnterprise, makeGroup);
+			const visibleKeys = new Set(groups.map((group) => group.key));
+			personalCategoryKeys.forEach((key) => {
+				if (visibleKeys.has(key)) {
+					return;
+				}
+
+				const group = unfilteredGroups.get(key);
+				if (group) {
+					groups.push(makeGroup(key, group));
+				}
+			});
 
 			return groups;
 		}, [
@@ -181,7 +233,8 @@ export const useRoomList = ({ collapsedGroups }: { collapsedGroups?: string[] })
 			incomingCalls,
 			conferenceWindowEnabled,
 			queue,
-			customCategories,
+			sidebarCustomCategories,
+			userRoomCategories,
 			isShowUnreads,
 			isKeepUnreadsOnTop,
 			openedRoom,

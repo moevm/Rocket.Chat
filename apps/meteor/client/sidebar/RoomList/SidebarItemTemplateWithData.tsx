@@ -1,5 +1,5 @@
 import { isOmnichannelRoom } from '@rocket.chat/core-typings';
-import { Icon, SidebarAction, SidebarActions, SidebarItemIcon } from '@rocket.chat/fuselage';
+import { SidebarAction, SidebarActions, SidebarItemIcon } from '@rocket.chat/fuselage';
 import type { SubscriptionWithRoom } from '@rocket.chat/ui-contexts';
 import { useLayout } from '@rocket.chat/ui-contexts';
 import type { TFunction } from 'i18next';
@@ -9,7 +9,6 @@ import { memo, useMemo } from 'react';
 import { RoomIcon } from '../../components/RoomIcon';
 import { useUserStatusTooltip } from '../../hooks/useUserStatusTooltip';
 import { roomCoordinator } from '../../lib/rooms/roomCoordinator';
-import { getSubscriptionDraft } from '../../lib/utils/getSubscriptionDraft';
 import { getUidDirectMessage } from '../../lib/utils/getUidDirectMessage';
 import { isIOsDevice } from '../../lib/utils/isIOsDevice';
 import { getMessagePreview } from '../../lib/utils/normalizeMessagePreview/getMessagePreview';
@@ -92,10 +91,6 @@ const SidebarItemTemplateWithData = ({
 		/>
 	);
 
-	const titleIcon = getSubscriptionDraft(room) ? (
-		<Icon name='pencil' size='x12' title={room.draft ? t('Unfinished_message') : t('Unfinished_thread_message')} />
-	) : undefined;
-
 	const actions = useMemo(
 		() =>
 			videoConfActions && (
@@ -130,7 +125,6 @@ const SidebarItemTemplateWithData = ({
 			time={lastMessage?.ts}
 			subtitle={subtitle}
 			icon={icon}
-			titleIcon={titleIcon}
 			style={style}
 			badges={<SidebarItemBadges room={room} roomTitle={title} />}
 			avatar={AvatarTemplate && <AvatarTemplate {...room} />}

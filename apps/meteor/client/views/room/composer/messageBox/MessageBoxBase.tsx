@@ -16,6 +16,7 @@ import MessageBoxActionsToolbar from './MessageBoxActionsToolbar';
 import MessageBoxFormattingToolbar from './MessageBoxFormattingToolbar';
 import MessageBoxHint from './MessageBoxHint';
 import MessageBoxReplies from './MessageBoxReplies';
+import ScheduleMessageButton from './ScheduleMessageButton';
 import type { ComposerAPI } from '../../../../lib/chats/ChatAPI';
 import type { FormattingButton } from '../../../../lib/messageBoxFormatting';
 import AudioMessageRecorder from '../../../composer/AudioMessageRecorder';
@@ -28,6 +29,8 @@ import type { useComposerBoxPopup } from '../hooks/useComposerBoxPopup';
 type MessageBoxBaseProps = {
 	rid: IRoom['_id'];
 	tmid?: IMessage['_id'];
+	tshow?: IMessage['tshow'];
+	previewUrls?: string[];
 	input: ReactNode;
 	hint?: ReactNode;
 	files?: ReactNode;
@@ -50,6 +53,8 @@ type MessageBoxBaseProps = {
 	unencryptedMessagesAllowed: boolean;
 	isMobile: boolean;
 	joinPending: boolean;
+	isImportantActive: boolean;
+	onImportantToggle: (active: boolean) => void;
 	onEmojiClick: (e: MouseEvent<HTMLElement>) => void;
 	onSend: () => void;
 	onJoin?: () => Promise<void>;
@@ -59,6 +64,8 @@ type MessageBoxBaseProps = {
 const MessageBoxBase = ({
 	rid,
 	tmid,
+	tshow,
+	previewUrls,
 	input,
 	hint,
 	files,
@@ -81,6 +88,8 @@ const MessageBoxBase = ({
 	unencryptedMessagesAllowed,
 	isMobile,
 	joinPending,
+	isImportantActive,
+	onImportantToggle,
 	onEmojiClick,
 	onSend,
 	onJoin,
@@ -151,6 +160,8 @@ const MessageBoxBase = ({
 							tmid={tmid}
 							isRecording={isRecording}
 							variant={variant}
+							isImportantActive={isImportantActive}
+							onImportantToggle={onImportantToggle}
 							isEditing={isEditing}
 						/>
 					</MessageComposerToolbarActions>
@@ -163,6 +174,9 @@ const MessageBoxBase = ({
 						{canSend && (
 							<>
 								{isEditing && <MessageComposerButton onClick={closeEditing}>{t('Cancel')}</MessageComposerButton>}
+								{!isEditing && (
+									<ScheduleMessageButton disabled={!canSend} tmid={tmid} tshow={tshow} previewUrls={previewUrls} />
+								)}
 								<MessageComposerAction
 									aria-label={t('Send')}
 									icon='send'

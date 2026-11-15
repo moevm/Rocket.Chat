@@ -50,6 +50,7 @@ export const permissions = [
 	{ _id: 'manage-assets', roles: ['admin'] },
 	{ _id: 'manage-email-inbox', roles: ['admin'] },
 	{ _id: 'manage-emoji', roles: ['admin'] },
+	{ _id: 'manage-scheduled-messages', roles: ['admin'] },
 	{ _id: 'manage-user-status', roles: ['admin'] },
 	{ _id: 'manage-outgoing-integrations', roles: ['admin'] },
 	{ _id: 'manage-incoming-integrations', roles: ['admin'] },
@@ -67,6 +68,7 @@ export const permissions = [
 	{ _id: 'set-owner', roles: ['admin', 'owner'] },
 	{ _id: 'send-many-messages', roles: ['admin', 'bot', 'app'] },
 	{ _id: 'set-leader', roles: ['admin', 'owner'] },
+	{ _id: 'set-important-message-marker', roles: ['admin', 'owner'] },
 	{ _id: 'start-discussion', roles: ['admin', 'user', 'federated-external', 'guest', 'app'] },
 	{ _id: 'start-discussion-other-user', roles: ['admin', 'user', 'federated-external', 'owner', 'app'] },
 	{ _id: 'unarchive-room', roles: ['admin'] },
@@ -239,4 +241,5 @@ export const permissions = [
 	{ _id: 'manage-moderation-actions', roles: ['admin'] },
 	{ _id: 'bypass-time-limit-edit-and-delete', roles: ['bot', 'app'] },
 	{ _id: 'export-messages-as-pdf', roles: ['admin', 'user'] },
+	{ _id: 'mark-message-as-important', roles: ['admin', 'owner', 'important-message-marker'] },
 ];

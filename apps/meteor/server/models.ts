@@ -58,6 +58,7 @@ import {
 	ReportsRaw,
 	RolesRaw,
 	RoomsRaw,
+	ScheduledMessagesRaw,
 	ServerEventsRaw,
 	SessionsRaw,
 	SettingsRaw,
@@ -68,6 +69,7 @@ import {
 	TeamRaw,
 	UploadsRaw,
 	UserDataFilesRaw,
+	UserRoomCategoriesRaw,
 	UsersRaw,
 	UsersSessionsRaw,
 	VideoConferenceRaw,
@@ -128,6 +130,7 @@ registerModel('IMediaCallsModel', new MediaCallsRaw(db));
 registerModel('IMediaCallNegotiationsModel', new MediaCallNegotiationsRaw(db));
 registerModel('IMessageReadsModel', new MessageReadsRaw(db));
 registerModel('IMessagesModel', new MessagesRaw(db, trashCollection));
+registerModel('IScheduledMessagesModel', new ScheduledMessagesRaw(db));
 registerModel('IMigrationsModel', new MigrationsRaw(db));
 registerModel('IModerationReportsModel', new ModerationReportsRaw(db));
 registerModel('INotificationQueueModel', new NotificationQueueRaw(db));
@@ -157,6 +160,7 @@ registerModel('IUploadsModel', new UploadsRaw(db));
 registerModel('IUserDataFilesModel', new UserDataFilesRaw(db));
 registerModel('IUsersModel', new UsersRaw(db, trashCollection));
 registerModel('IUsersSessionsModel', new UsersSessionsRaw(db));
+registerModel('IUserRoomCategoriesModel', new UserRoomCategoriesRaw(db));
 registerModel('IVideoConferenceModel', new VideoConferenceRaw(db));
 registerModel('IWebdavAccountsModel', new WebdavAccountsRaw(db));
 registerModel('IWorkspaceCredentialsModel', new WorkspaceCredentialsRaw(db));

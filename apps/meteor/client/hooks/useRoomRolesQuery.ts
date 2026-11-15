@@ -58,6 +58,8 @@ export const useRoomRolesQuery = <TData = RoomRoles[]>(rid: IRoom['_id'], option
 
 						return data.map((record, i) => (i === index ? { ...record, roles: record.roles.filter((r) => r !== roleId) } : record));
 					});
+
+					queryClient.invalidateQueries({ queryKey: roomsQueryKeys.roles(rid) });
 					break;
 				}
 			}
