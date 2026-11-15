@@ -69,7 +69,8 @@ const RoomList = () => {
 		[avatarTemplate, extended, isAnonymous, openedRoom, sideBarItemTemplate, sidebarViewMode, t, userId],
 	);
 
-	const allGroupKeys = useMemo(() => groups.map((group) => group.key), [groups]);
+	const movableGroups = useMemo(() => groups.filter((group) => !group.userRoomCategory), [groups]);
+	const allGroupKeys = useMemo(() => movableGroups.map((group) => group.key), [movableGroups]);
 
 	const virtualGroups = useMemo(
 		() =>
@@ -98,17 +99,22 @@ const RoomList = () => {
 				bufferSize={bufferSize}
 				onRangeChange={handleRangeChange}
 				getItemKey={(item) => item._id}
-				renderGroup={(group, index) => (
-					<RoomListCollapser
-						group={group}
-						canMoveUp={canMoveGroup(groups, index, 'up')}
-						canMoveDown={canMoveGroup(groups, index, 'down')}
-						onMoveUp={() => moveCategory(allGroupKeys, group.key, 'up')}
-						onMoveDown={() => moveCategory(allGroupKeys, group.key, 'down')}
-						onClick={() => handleClick(group.key)}
-						onKeyDown={(e) => handleKeyDown(e, group.key)}
-					/>
-				)}
+				renderGroup={(group) => {
+					const movableIndex = allGroupKeys.indexOf(group.key);
+					const canMove = movableIndex !== -1;
+
+					return (
+						<RoomListCollapser
+							group={group}
+							canMoveUp={canMove && canMoveGroup(movableGroups, movableIndex, 'up')}
+							canMoveDown={canMove && canMoveGroup(movableGroups, movableIndex, 'down')}
+							onMoveUp={() => canMove && moveCategory(allGroupKeys, group.key, 'up')}
+							onMoveDown={() => canMove && moveCategory(allGroupKeys, group.key, 'down')}
+							onClick={() => handleClick(group.key)}
+							onKeyDown={(e) => handleKeyDown(e, group.key)}
+						/>
+					);
+				}}
 				renderItem={(item, _itemIndex, _group, _groupIndex, rowIndex) => (
 					<RoomListRowWrapper data-index={rowIndex}>
 						<RoomListRow data={itemData} item={item} />

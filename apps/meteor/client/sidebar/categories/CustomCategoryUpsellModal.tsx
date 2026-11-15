@@ -13,7 +13,7 @@ const CustomCategoryUpsellModal = ({ onClose, onConfirm }: CustomCategoryUpsellM
 
 	return (
 		<GenericUpsellModal
-			tagline={t('Premium_capability')}
+			tagline={t('Custom_categories_premium_capability')}
 			title={t('Custom_categories')}
 			subtitle={t('Custom_categories_subtitle')}
 			description={t('Custom_categories_description')}

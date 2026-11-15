@@ -85,7 +85,7 @@ const CategoryMenu = ({
 				{
 					id: 'manage',
 					icon: 'cog',
-					content: t('Manage'),
+					content: t('Manage_sidebar_category'),
 					onClick: () => {
 						close();
 						openManage(category);
