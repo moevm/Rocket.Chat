@@ -73,12 +73,12 @@ const ImportantMessageReadInfo = ({ message }: ImportantMessageReadInfoProps): R
 		});
 
 		const unsubscribeRoom = subscribeToNotifyRoom(`${message.rid}/subscriptions-changed`, () => {
-			void queryClient.refetchQueries({ 
+			void queryClient.refetchQueries({
 				queryKey: ['important-message-readers', message._id],
-				type: 'active'
+				type: 'active',
 			});
 		});
-		
+
 		return () => {
 			unsubscribeMessages();
 			unsubscribeRoom();
@@ -90,19 +90,19 @@ const ImportantMessageReadInfo = ({ message }: ImportantMessageReadInfoProps): R
 
 		const handleClickOutside = (event: MouseEvent) => {
 			const target = event.target as HTMLElement;
-			
+
 			if (target.closest('[data-important-message-controls]')) {
 				return;
 			}
-			
+
 			if (buttonRef.current && buttonRef.current.contains(target)) {
 				return;
 			}
-			
+
 			if (listRef.current && listRef.current.contains(target)) {
 				return;
 			}
-			
+
 			setShowList(false);
 		};
 
@@ -203,10 +203,13 @@ const ImportantMessageReadInfo = ({ message }: ImportantMessageReadInfoProps): R
 		setShowList((prev) => !prev);
 	};
 
-	const handleUserClick = useCallback((username: string) => () => {
-		openTab('members-list', username);
-		setShowList(false);
-	}, [openTab]);
+	const handleUserClick = useCallback(
+		(username: string) => () => {
+			openTab('members-list', username);
+			setShowList(false);
+		},
+		[openTab],
+	);
 
 	return (
 		<Box mis='x4' position='relative' display='inline-flex'>
@@ -214,8 +217,8 @@ const ImportantMessageReadInfo = ({ message }: ImportantMessageReadInfoProps): R
 				is='button'
 				ref={buttonRef}
 				onClick={handleClick}
-				aria-label={t('Read_by_information')}
-				title={t('Read_by_information')}
+				aria-label={t('Read_by')}
+				title={t('Read_by')}
 				data-important-message-info-button
 				style={{
 					background: 'none',

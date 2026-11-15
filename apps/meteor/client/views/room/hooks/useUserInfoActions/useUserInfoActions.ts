@@ -9,10 +9,10 @@ import { useMemo } from 'react';
 import { useAddUserAction } from './actions/useAddUserAction';
 import { useBanUserAction } from './actions/useBanUserAction';
 import { useBlockUserAction } from './actions/useBlockUserAction';
+import { useChangeImportantMessageMarkerAction } from './actions/useChangeImportantMessageMarkerAction';
 import { useChangeLeaderAction } from './actions/useChangeLeaderAction';
 import { useChangeModeratorAction } from './actions/useChangeModeratorAction';
 import { useChangeOwnerAction } from './actions/useChangeOwnerAction';
-import { useChangeImportantMessageMarkerAction } from './actions/useChangeImportantMessageMarkerAction';
 import { useDirectMessageAction } from './actions/useDirectMessageAction';
 import { useIgnoreUserAction } from './actions/useIgnoreUserAction';
 import { useMuteUserAction } from './actions/useMuteUserAction';
@@ -53,7 +53,7 @@ export type UserMenuAction = {
 }[];
 
 type UserInfoActionsParams = {
-	user: Pick<IUser, '_id' | 'username' | 'name' | 'freeSwitchExtension' | 'roles'>;
+	user: Pick<IUser, '_id' | 'username' | 'name' | 'freeSwitchExtension' | 'federated' | 'roles'>;
 	rid: IRoom['_id'];
 	reload?: () => void;
 	size?: number;
@@ -97,14 +97,15 @@ export const useUserInfoActions = ({
 			...(openDirectMessage && !isLayoutEmbedded && { openDirectMessage }),
 			...(videoCall && { videoCall }),
 			...(userMediaCall && { userMediaCall }),
+			// Menu sections follow the order in which each type first appears here.
+			...(isMember && openModerationConsole && { openModerationConsole }),
+			...(isMember && muteUser && { muteUser }),
 			...(!isMember && addUser && { addUser }),
 			...(isMember && changeOwner && { changeOwner }),
 			...(isMember && changeLeader && { changeLeader }),
 			...(isMember && changeModerator && { changeModerator }),
 			...(isMember && changeImportantMessageMarker && { changeImportantMessageMarker }),
-			...(isMember && openModerationConsole && { openModerationConsole }),
 			...(isMember && ignoreUser && { ignoreUser }),
-			...(isMember && muteUser && { muteUser }),
 			...(blockUser && { toggleBlock: blockUser }),
 			...((isMember || isInvited) && removeUser && { removeUser }),
 			...((isMember || isInvited) && banUser && { banUser }),
@@ -153,7 +154,7 @@ export const useUserInfoActions = ({
 				return acc;
 			}
 
-			const newSection = { id: group, title: '', items: [newItem] };
+			const newSection = { id: group, title: group === 'privileges' ? 'Manage_room_roles' : '', items: [newItem] };
 			acc.push(newSection);
 
 			return acc;
@@ -164,4 +165,3 @@ export const useUserInfoActions = ({
 
 	return actionSpread;
 };
-

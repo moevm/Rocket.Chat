@@ -21,6 +21,7 @@ const ImportantMessageReadButton = ({ message }: ImportantMessageReadButtonProps
 	
 	const serverIsRead = message.importantReadBy?.includes(userId || '') ?? false;
 	const [isRead, setIsRead] = useState(serverIsRead);
+	const isAuthor = message.u?._id === userId;
 
 	useEffect(() => {
 		setIsRead(serverIsRead);
@@ -51,19 +52,19 @@ const ImportantMessageReadButton = ({ message }: ImportantMessageReadButtonProps
 	};
 
 	return (
-		<Box display='flex' alignItems='center'>
-			<Button
-				small
-				onClick={handleToggle}
-				primary={!isRead}
-				mis='x8'
-				mbs='x4'
-				style={{ width: 'fit-content', minWidth: 'auto' }}
-				data-important-message-button
-				data-important-message-controls
-			>
-				{isRead ? t('Important_message_read') : t('Important_message_mark_as_read')}
-			</Button>
+		<Box display='flex' alignItems='center' marginBlockStart={10}>
+			{!isAuthor && (
+				<Button
+					small
+					icon='check'
+					onClick={handleToggle}
+					aria-pressed={isRead}
+					data-important-message-button
+					data-important-message-controls
+				>
+					{isRead ? t('Important_message_read') : t('Important_message_mark_as_read')}
+				</Button>
+			)}
 			<ImportantMessageReadInfo message={message} />
 		</Box>
 	);

@@ -1,5 +1,5 @@
 import type { IRoom, IUser } from '@rocket.chat/core-typings';
-import { useEffectEvent } from '@rocket.chat/fuselage-hooks';
+import { useStableCallback } from '@rocket.chat/fuselage-hooks';
 import {
 	usePermission,
 	useUserRoom,
@@ -8,6 +8,7 @@ import {
 	useUserId,
 	useMethod,
 	useStream,
+	useTranslation,
 } from '@rocket.chat/ui-contexts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useEffect } from 'react';
@@ -27,6 +28,7 @@ export const useChangeImportantMessageMarkerAction = (
 	const userCanSetImportantMessageMarker = usePermission('set-important-message-marker', rid);
 	const dispatchToastMessage = useToastMessageDispatch();
 	const getUserRoomRole = useMethod('getUserRoomRole');
+	const t = useTranslation();
 	const queryClient = useQueryClient();
 	const subscribeToNotifyLogged = useStream('notify-logged');
 
@@ -72,7 +74,7 @@ export const useChangeImportantMessageMarkerAction = (
 		staleTime: 0,
 	});
 
-	const changeRoleAction = useEffectEvent(async () => {
+	const changeRoleAction = useStableCallback(async () => {
 		try {
 			const newRoleState = !hasRole;
 
@@ -92,8 +94,8 @@ export const useChangeImportantMessageMarkerAction = (
 			dispatchToastMessage({
 				type: 'success',
 				message: newRoleState
-					? `Granted ability to mark important messages to @${username} in this room`
-					: `Removed ability to mark important messages from @${username} in this room`,
+					? `${t('Set_as_important_message_marker')} to @${username} in this room`
+					: `${t('Remove_as_important_message_marker')} from @${username} in this room`,
 			});
 		} catch (error) {
 			dispatchToastMessage({
@@ -125,9 +127,7 @@ export const useChangeImportantMessageMarkerAction = (
 		}
 
 		return {
-			content: hasRole 
-				? 'Remove ability to mark important messages'
-				: 'Grant ability to mark important messages',
+			content: t(hasRole ? 'Remove_as_important_message_marker' : 'Set_as_important_message_marker'),
 			icon: 'flag' as const,
 			onClick: changeRoleAction,
 			type: 'privileges' as UserInfoActionType,
@@ -141,6 +141,7 @@ export const useChangeImportantMessageMarkerAction = (
 		changeRoleAction,
 		uid,
 		currentUserId,
+		t,
 	]);
 
 	return changeRoleOption;
